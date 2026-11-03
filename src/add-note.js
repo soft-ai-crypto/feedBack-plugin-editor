@@ -6,6 +6,7 @@ import { _editBlipAt } from './audio.js';
 import { AddNoteCmd } from './commands.js';
 import { _tourNoteAction } from './tour.js';
 import { editorKeyNoteNames, isKeysMode, midiToNote, noteToMidi } from './keys.js';
+import { _maxFretFor } from './instrument.js';
 import { S } from './state.js';
 import { host } from './host.js';
 
@@ -30,6 +31,8 @@ export function showAddNote(cx, cy, time, string, fret) {
         sus.select();
     } else {
         const inp = document.getElementById('editor-add-fret');
+        const maxFret = _maxFretFor(S.arrangements[S.currentArr]);
+        inp.max = String(maxFret);
         inp.value = fret != null ? String(fret) : '0';
         inp.focus();
         inp.select();
@@ -45,7 +48,7 @@ export function editorConfirmAddNote() {
     if (!addNoteData) return;
     const fret = addNoteData.isKeys
         ? addNoteData.fret
-        : Math.max(0, Math.min(24, parseInt(document.getElementById('editor-add-fret').value) || 0));
+        : Math.max(0, Math.min(_maxFretFor(S.arrangements[S.currentArr]), parseInt(document.getElementById('editor-add-fret').value) || 0));
     const sustain = Math.max(0, parseFloat(document.getElementById('editor-add-sustain').value) || 0);
     const note = {
         time: addNoteData.time,

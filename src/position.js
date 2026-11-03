@@ -41,10 +41,11 @@ export function _absolutePitch(openMidi, tuning, stringIdx, fret) {
 // integer frets 0–24 on existing strings, ordered low string → high; the
 // note's own position is always a member, so steppers walk the list order
 // and wrap. Returns [] when the source position is malformed.
-export function _cyclePositionCandidatesPure(openMidi, tuning, laneCount, stringIdx, fret) {
+export function _cyclePositionCandidatesPure(openMidi, tuning, laneCount, stringIdx, fret, maxFret) {
     if (!Array.isArray(openMidi) || openMidi[stringIdx] === undefined) return [];
     const f = Number(fret);
     if (!Number.isInteger(f)) return [];
+    const cap = Number.isFinite(maxFret) ? maxFret : 24;
     const offAt = s => (Array.isArray(tuning) && tuning[s] !== undefined)
         ? (Number(tuning[s]) || 0)
         : 0;
@@ -53,7 +54,7 @@ export function _cyclePositionCandidatesPure(openMidi, tuning, laneCount, string
     for (let s = 0; s < laneCount; s++) {
         if (openMidi[s] === undefined) continue;
         const tf = pitch - openMidi[s] - offAt(s);
-        if (Number.isInteger(tf) && tf >= 0 && tf <= 24) out.push({ string: s, fret: tf });
+        if (Number.isInteger(tf) && tf >= 0 && tf <= cap) out.push({ string: s, fret: tf });
     }
     return out;
 }
@@ -80,15 +81,16 @@ export function _cycleStepPure(candidates, curString, curFret, direction) {
 // Enumerate every playable {string, fret} for `pitch`, capo-aware (the exact
 // inverse of _soundingPitchPure: fret = pitch − openMidi[s] − tuning[s] − capo,
 // valid as an integer in [0,24]). Ordered low string → high.
-export function _enumerateFrettedPositionsPure(pitch, openMidi, tuning, capo) {
+export function _enumerateFrettedPositionsPure(pitch, openMidi, tuning, capo, maxFret) {
     const out = [];
     if (!Array.isArray(openMidi) || !Number.isFinite(pitch)) return out;
     const off = s => (Array.isArray(tuning) && tuning[s] !== undefined) ? (Number(tuning[s]) || 0) : 0;
     const cap = Number(capo) || 0;
+    const fretCap = Number.isFinite(maxFret) ? maxFret : 24;
     for (let s = 0; s < openMidi.length; s++) {
         if (openMidi[s] === undefined) continue;
         const fret = pitch - openMidi[s] - off(s) - cap;
-        if (Number.isInteger(fret) && fret >= 0 && fret <= 24) out.push({ string: s, fret });
+        if (Number.isInteger(fret) && fret >= 0 && fret <= fretCap) out.push({ string: s, fret });
     }
     return out;
 }
@@ -116,7 +118,7 @@ export function _activeAnchorAtPure(anchorList, time) {
 // string is occupied, or when out of range.
 export function _suggestPositionPure(pitch, time, prevNote, anchorList, occupiedStrings, ctx) {
     const c = ctx || {};
-    const candidates = _enumerateFrettedPositionsPure(pitch, c.openMidi, c.tuning, c.capo);
+    const candidates = _enumerateFrettedPositionsPure(pitch, c.openMidi, c.tuning, c.capo, c.maxFret);
     if (!candidates.length) return { resolved: null, reason: 'out-of-range', candidates };
     const occ = occupiedStrings instanceof Set ? occupiedStrings : new Set(occupiedStrings || []);
     const free = candidates.filter(p => !occ.has(p.string));
@@ -192,7 +194,7 @@ export function _resolveChordGripPure(cluster, ctx, cfg, prevFret, occByOthers) 
     // note has nowhere to go — the whole cluster is left to the per-note path.
     const perNote = [];
     for (const it of items) {
-        const cands = _enumerateFrettedPositionsPure(it.pitch, c.openMidi, c.tuning, c.capo)
+        const cands = _enumerateFrettedPositionsPure(it.pitch, c.openMidi, c.tuning, c.capo, c.maxFret)
             .filter(p => !occ.has(p.string))
             .filter(p => anchorFret === null || p.fret === 0 || (p.fret >= anchorFret && p.fret < anchorFret + hand));
         if (!cands.length) return null;

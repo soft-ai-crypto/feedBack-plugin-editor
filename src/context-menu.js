@@ -21,6 +21,7 @@ import {
 } from './commands.js';
 import { host } from './host.js';
 import { _renderInspector } from './inspector.js';
+import { _maxFretFor } from './instrument.js';
 import { _rollLockNotice, _rollReadOnly } from './keys.js';
 import {
     BEND_INTENTS, _isSuggested, bendPresetCurve, notes, rescaleBendCurveToPeak, sanitizeBendCurve,
@@ -111,15 +112,16 @@ export function hideContextMenu() {
 export async function promptFret(idx) {
     hideContextMenu();
     const current = notes()[idx].fret;
+    const maxFret = _maxFretFor(S.arrangements[S.currentArr]);
     const val = await _editorPromptText({
-        title: 'Edit Fret', label: 'Fret number (0–24)', value: String(current),
+        title: 'Edit Fret', label: `Fret number (0–${maxFret})`, value: String(current),
     });
     if (val === null) return;
     // Strict-integer parse so `12abc` / `0x10` fall back to 0 instead
     // of silently truncating to a surprising value. `_parseFretInput`
-    // returns -1 on bad input; clamp to [0, 24] for the fretboard.
+    // returns -1 on bad input; clamp to the instrument's fretboard.
     const parsed = _parseFretInput(val);
-    const fret = Math.max(0, Math.min(24, parsed < 0 ? 0 : parsed));
+    const fret = Math.max(0, Math.min(maxFret, parsed < 0 ? 0 : parsed));
     S.history.exec(new ChangeFretCmd(idx, fret));
     host.editBlipAt();
     host.draw();
@@ -366,7 +368,7 @@ export async function promptSlide(idx) {
     if (val === null) return;
     if (!n.techniques) n.techniques = {};
     const fret = _parseFretInput(val);
-    n.techniques.slide_to = fret < 0 ? -1 : Math.min(24, fret);
+    n.techniques.slide_to = fret < 0 ? -1 : Math.min(_maxFretFor(S.arrangements[S.currentArr]), fret);
     host.draw();
     _renderInspector();
 }
@@ -386,7 +388,7 @@ export async function promptSlideUnpitch(idx) {
     if (val === null) return;
     if (!n.techniques) n.techniques = {};
     const fret = _parseFretInput(val);
-    n.techniques.slide_unpitch_to = fret < 0 ? -1 : Math.min(24, fret);
+    n.techniques.slide_unpitch_to = fret < 0 ? -1 : Math.min(_maxFretFor(S.arrangements[S.currentArr]), fret);
     host.draw();
     _renderInspector();
 }

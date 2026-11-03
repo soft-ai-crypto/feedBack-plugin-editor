@@ -29,6 +29,7 @@
 import { beatOf, timeOf } from './beats.js';
 import { _flattenArrChords, _mergeChordFn } from './chords.js';
 import { host } from './host.js';
+import { _maxFretFor } from './instrument.js';
 import { PIANO_LANE_H, _rollPitchCtx, isKeysArr } from './keys.js';
 import { _openMidiForArr, _soundingPitchPure, _stringCountFor } from './lanes.js';
 import { _clearSuggested, _isSuggested, _markSuggested, notes, rescaleBendCurveToPeak, sanitizeBendCurve } from './notes.js';
@@ -650,7 +651,7 @@ export function _getMoveStringResult(noteIdx, direction) {
     const targetOffset = (Number(tuning[targetString]) || 0);
     const targetFret   = pitch - openMidi[targetString] - targetOffset;
 
-    if (!Number.isInteger(targetFret) || targetFret < 0 || targetFret > 24) return null;
+    if (!Number.isInteger(targetFret) || targetFret < 0 || targetFret > _maxFretFor(arr)) return null;
     return { targetString, targetFret };
 }
 
@@ -988,7 +989,7 @@ export function _execCyclePosition(direction) {
         const n = nn[idx];
         if (!n) continue;
         const next = _cycleStepPure(
-            _cyclePositionCandidatesPure(openMidi, tuning, laneCount, n.string, n.fret),
+            _cyclePositionCandidatesPure(openMidi, tuning, laneCount, n.string, n.fret, _maxFretFor(arr)),
             n.string, n.fret, direction);
         if (!next) continue;
         moves.push({

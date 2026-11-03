@@ -626,20 +626,29 @@ export async function editorAddEmptyKeys(statusElId = 'editor-add-keys-status') 
     return ok;
 }
 
-// Blank fretted start (New Track ▸ Transcription ▸ Lead/Rhythm/Bass ▸
-// empty). Role names mirror the create flow's roster: Lead/Rhythm seed a
-// 6-string guitar, Bass a 4-string bass — the canvas −/+ or the Strings
-// modal extend the range afterwards.
+// Blank fretted start (New Track ▸ Transcription ▸ Lead/Rhythm/Bass/
+// Carnatic Mandolin ▸ empty). Role names mirror the create flow's roster:
+// Lead/Rhythm seed a 6-string guitar, Bass a 4-string bass, Carnatic
+// Mandolin a 5-string course — the canvas −/+ or the Strings modal extend
+// guitar/bass range afterwards (Carnatic Mandolin stays at 5).
 export async function editorAddEmptyFretted(role) {
-    const base = role === 'Bass' ? 'Bass' : role === 'Rhythm' ? 'Rhythm' : 'Lead';
-    return _addEmptyArrangement({
+    const isCarnatic = role === 'Carnatic Mandolin';
+    const base = role === 'Bass' ? 'Bass'
+        : role === 'Rhythm' ? 'Rhythm'
+        : isCarnatic ? 'Carnatic Mandolin'
+        : 'Lead';
+    const arrangement = {
         name: _uniqueTrackNamePure(base, S.arrangements.map(a => a && a.name)),
-        tuning: base === 'Bass' ? [0, 0, 0, 0] : [0, 0, 0, 0, 0, 0],
+        tuning: base === 'Bass' ? [0, 0, 0, 0]
+            : isCarnatic ? [0, 0, 0, 0, 0]
+            : [0, 0, 0, 0, 0, 0],
         capo: 0,
         notes: [],
         chords: [],
         chord_templates: [],
-    }, 'editor-new-track-status',
+    };
+    if (isCarnatic) arrangement.type = 'carnatic-mandolin';
+    return _addEmptyArrangement(arrangement, 'editor-new-track-status',
     `Added empty ${base} track. Double-click the chart to add notes; save to commit.`);
 }
 

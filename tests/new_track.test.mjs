@@ -49,6 +49,9 @@ t('planner: empty transcription routes per instrument', () => {
             { action: 'empty-fretted', role: inst });
     }
     assert.deepStrictEqual(
+        _newTrackPlanPure({ type: 'transcription', instrument: 'Carnatic Mandolin', source: 'empty' }, CTX),
+        { action: 'empty-fretted', role: 'Carnatic Mandolin' });
+    assert.deepStrictEqual(
         _newTrackPlanPure({ type: 'transcription', instrument: 'Keys', source: 'empty' }, CTX),
         { action: 'empty-keys' });
     assert.deepStrictEqual(
@@ -119,6 +122,12 @@ await ta('editorAddEmptyFretted: registers, appends, switches — bass gets 4 st
     assert.strictEqual(ok2, true);
     assert.strictEqual(S.arrangements[2].name, 'Lead 2');
     assert.strictEqual(S.arrangements[2].tuning.length, 6);
+    const ok3 = await editorAddEmptyFretted('Carnatic Mandolin');
+    assert.strictEqual(ok3, true);
+    const cm = S.arrangements[3];
+    assert.strictEqual(cm.name, 'Carnatic Mandolin');
+    assert.strictEqual(cm.type, 'carnatic-mandolin');
+    assert.deepStrictEqual(cm.tuning, [0, 0, 0, 0, 0]);
 });
 
 await ta('editorAddEmptyFretted: backend error rejects without touching state', async () => {

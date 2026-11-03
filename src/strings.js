@@ -5,7 +5,7 @@
 import { AddStringCmd, RemoveStringCmd, RemoveStringWithNotesCmd } from './commands.js';
 import { LANE_H, TIMELINE_TOP, WAVEFORM_H } from './geometry.js';
 import { isKeysMode } from './keys.js';
-import { arrKind, _isBassArr } from './instrument.js';
+import { arrKind, _isBassArr, _isCarnaticMandolinArr } from './instrument.js';
 import { _stringCountFor, laneLabels } from './lanes.js';
 import { S, editGen } from './state.js';
 import { host } from './host.js';
@@ -23,7 +23,8 @@ import { host } from './host.js';
 // remove only at the end the model supports (see `_addPositionPure` /
 // `_removePositionPure`); direct per-string tuning entry below covers the
 // exotic tunings (drop/open/re-entrant) that changing the COUNT cannot.
-function _stringsRangePure(isBass) {
+function _stringsRangePure(isBass, isCarnatic) {
+    if (isCarnatic) return { min: 5, max: 5 };
     return isBass ? { min: 4, max: 6 } : { min: 6, max: 8 };
 }
 
@@ -33,7 +34,8 @@ function _stringsRangePure(isBass) {
 // then high (5→6); guitar grows low (6→7→8). Adding at any other end
 // yields a count/label/pitch shape the renderer can't represent, so the
 // modal never offers it. Pure — role + count in, position out.
-function _addPositionPure(isBass, cur) {
+function _addPositionPure(isBass, cur, isCarnatic) {
+    if (isCarnatic) return null;
     if (isBass) {
         if (cur === 4) return 'low';   // 4→5 adds low B
         if (cur === 5) return 'high';  // 5→6 adds high C
@@ -46,7 +48,8 @@ function _addPositionPure(isBass, cur) {
 // The only END a remove may touch — the inverse of `_addPositionPure`, so
 // removing always peels the string the last add appended and the count
 // collapses back to a shape the model can represent. null at the floor.
-function _removePositionPure(isBass, cur) {
+function _removePositionPure(isBass, cur, isCarnatic) {
+    if (isCarnatic) return null;
     if (isBass) {
         if (cur === 6) return 'high';  // 6→5 peels high C
         if (cur === 5) return 'low';   // 5→4 peels low B
@@ -104,7 +107,7 @@ export function _stringButtonsVisiblePure(kind, flags) {
     if (f.keysMode || f.drumEdit || f.tempoMap || f.partsView || f.tabView) return false;
     // `kind` is the resolved instrument (arrKind — type-authoritative); the
     // string controls are for fretted parts only, so keys/drums hide them.
-    return kind !== 'keys' && kind !== 'drums';
+    return kind !== 'keys' && kind !== 'drums' && kind !== 'carnatic-mandolin';
 }
 
 // Tooltip copy for the buttons. Count-centric: they always grow/shrink
@@ -135,7 +138,7 @@ export function _stringRemoveLabelPure(isBass, cur) {
 function _stringsRangeForActive() {
     const arr = S.arrangements[S.currentArr];
     const isBass = arr && _isBassArr(arr);
-    return _stringsRangePure(!!isBass);
+    return _stringsRangePure(!!isBass, arr && _isCarnaticMandolinArr(arr));
 }
 
 function _notesOnString(arr, idx) {
@@ -157,10 +160,12 @@ function _renderStringsModal() {
     while (tuning.length < labels.length) tuning.push(0);
     const { min, max } = _stringsRangeForActive();
     const isBass = _isBassArr(arr);
+    const isCarnatic = _isCarnaticMandolinArr(arr);
 
     const summary = document.getElementById('editor-strings-summary');
     if (summary) {
-        summary.textContent = `${arr.name || 'Arrangement'} — ${labels.length} string${labels.length === 1 ? '' : 's'} (${isBass ? 'bass' : 'guitar'}; range ${min}–${max})`;
+        const role = isCarnatic ? 'carnatic mandolin' : (isBass ? 'bass' : 'guitar');
+        summary.textContent = `${arr.name || 'Arrangement'} — ${labels.length} string${labels.length === 1 ? '' : 's'} (${role}; range ${min}–${max})`;
     }
 
     const list = document.getElementById('editor-strings-list');
@@ -218,8 +223,8 @@ function _renderStringsModal() {
     // guitar has no valid high string and a 4/5-string guitar has no valid
     // low removal, so offering those ends would silently corrupt note
     // indices — hence a hard per-end gate, not a blanket ceiling/floor.
-    const addPos = _addPositionPure(!!isBass, curCount);
-    const removePos = _removePositionPure(!!isBass, curCount);
+    const addPos = _addPositionPure(!!isBass, curCount, isCarnatic);
+    const removePos = _removePositionPure(!!isBass, curCount, isCarnatic);
     const addLow = document.getElementById('editor-strings-add-low');
     const addHigh = document.getElementById('editor-strings-add-high');
     if (addLow) addLow.disabled = addPos !== 'low';
@@ -259,6 +264,7 @@ export const editorAddString = (pos) => {
     const arr = S.arrangements[S.currentArr];
     if (!arr) return;
     const isBass = _isBassArr(arr);
+    const isCarnatic = _isCarnaticMandolinArr(arr);
     // Compute the count directly from the active arrangement rather
     // than going through `lanes()` — the latter consults a per-draw
     // cache and our intent here is explicitly "what is this
@@ -268,7 +274,7 @@ export const editorAddString = (pos) => {
     // role + count. A mismatched request (guitar high, bass low at 5, …)
     // is rejected outright rather than silently coerced, because adding
     // at the unsupported end re-snaps the count and re-labels every note.
-    const valid = _addPositionPure(isBass, cur);
+    const valid = _addPositionPure(isBass, cur, isCarnatic);
     if (!valid || pos !== valid) return;
     // The command's exec() calls _resizeForLaneChange() itself, which
     // covers undo/redo too — no need to duplicate the resize here.
@@ -282,13 +288,14 @@ export const editorRemoveString = (pos) => {
     const arr = S.arrangements[S.currentArr];
     if (!arr) return;
     const isBass = _isBassArr(arr);
+    const isCarnatic = _isCarnaticMandolinArr(arr);
     // Same reasoning as editorAddString — anchor on `arr` directly
     // rather than the cached `lanes()`.
     const cur = _stringCountFor(arr);
     // Only remove the END the model can collapse back to a representable
     // shape (the inverse of the add order). Any other end would leave the
     // count at a value the labels/pitches no longer match.
-    const valid = _removePositionPure(isBass, cur);
+    const valid = _removePositionPure(isBass, cur, isCarnatic);
     if (!valid || pos !== valid) return;
     const targetIdx = valid === 'low' ? 0 : cur - 1;
     if (_notesOnString(arr, targetIdx) > 0) return;  // UI button is disabled too
@@ -322,6 +329,7 @@ export function editorStringButtonsRefresh() {
         return;
     }
     const isBass = _isBassArr(arr);
+    const isCarnatic = _isCarnaticMandolinArr(arr);
     // _stringCountFor walks every note, so memo it on the edit generation
     // (the repo's standard dirty key — in-place moves keep array identity)
     // rather than paying O(notes) on every rAF flush.
@@ -336,7 +344,7 @@ export function editorStringButtonsRefresh() {
     // high-to-low, so the band bottom is the low string). LANE_H is a live
     // binding re-derived on resize; cur*LANE_H tracks add/remove.
     const top = TIMELINE_TOP + WAVEFORM_H + cur * LANE_H - 21;
-    const key = `${top}|${cur}|${isBass}`;
+    const key = `${top}|${cur}|${isBass}|${isCarnatic}`;
     if (key === _stringBtnsKey) return;
     _stringBtnsKey = key;
     box.classList.remove('hidden');
@@ -344,11 +352,11 @@ export function editorStringButtonsRefresh() {
     const addBtn = document.getElementById('editor-string-btn-add');
     const rmBtn = document.getElementById('editor-string-btn-remove');
     if (addBtn) {
-        addBtn.disabled = !_addPositionPure(isBass, cur);
+        addBtn.disabled = !_addPositionPure(isBass, cur, isCarnatic);
         addBtn.title = _stringAddLabelPure(isBass, cur);
     }
     if (rmBtn) {
-        rmBtn.disabled = !_removePositionPure(isBass, cur);
+        rmBtn.disabled = !_removePositionPure(isBass, cur, isCarnatic);
         rmBtn.title = _stringRemoveLabelPure(isBass, cur);
     }
 }
@@ -356,7 +364,7 @@ export function editorStringButtonsRefresh() {
 export const editorCanvasStringAdd = () => {
     const arr = S.arrangements[S.currentArr];
     if (!arr) return;
-    const pos = _addPositionPure(_isBassArr(arr), _stringCountFor(arr));
+    const pos = _addPositionPure(_isBassArr(arr), _stringCountFor(arr), _isCarnaticMandolinArr(arr));
     if (pos) editorAddString(pos);
 };
 
@@ -365,7 +373,7 @@ export const editorCanvasStringRemove = () => {
     if (!arr) return;
     const isBass = _isBassArr(arr);
     const cur = _stringCountFor(arr);
-    const pos = _removePositionPure(isBass, cur);
+    const pos = _removePositionPure(isBass, cur, _isCarnaticMandolinArr(arr));
     if (!pos) return;
     const targetIdx = pos === 'low' ? 0 : cur - 1;
     const blockers = _notesOnString(arr, targetIdx);

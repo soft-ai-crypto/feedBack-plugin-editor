@@ -33,7 +33,7 @@ export function _newTrackPlanPure(sel, ctx) {
     if (s.type === 'audio') return { action: 'audio-picker' };
     if (s.type !== 'transcription') return { action: 'blocked', reason: 'pick-type' };
     const inst = s.instrument;
-    if (!['Lead', 'Rhythm', 'Bass', 'Keys', 'Drums'].includes(inst)) {
+    if (!['Lead', 'Rhythm', 'Bass', 'Carnatic Mandolin', 'Keys', 'Drums'].includes(inst)) {
         return { action: 'blocked', reason: 'pick-instrument' };
     }
     if (s.source === 'file') {

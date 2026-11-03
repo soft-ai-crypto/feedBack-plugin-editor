@@ -18,6 +18,7 @@ import { _drumEditorDeleteSelection, _drumEditorNudgeVelocity, _drumEditorSetVel
 import { ANCHOR_LANE_H, HS_LANE_H, LABEL_W, LANE_H, TIMELINE_TOP, TONE_LANE_H, WAVEFORM_H, xToTime, yToStr } from './geometry.js';
 import { hitNote } from './hit-test.js';
 import { _renderInspector, _selectedChordContext } from './inspector.js';
+import { _maxFretFor } from './instrument.js';
 import { PIANO_LANE_H, _rollLockNotice, _rollReadOnly, isKeysArr, isKeysMode, midiToFret, midiToString, pianoLaneCount, yToMidi } from './keys.js';
 import { lanes, _stringCountFor } from './lanes.js';
 import {
@@ -124,7 +125,7 @@ function _editorPlaceAtCaret(fret) {
     // Length = the note value (the snap step), so a typed note fills the preview
     // cell and consecutive notes tile the grid instead of stacking zero-length.
     const step = _editorSnapStepSeconds();
-    const f = Math.max(0, Math.min(24, Number(fret) || 0));
+    const f = Math.max(0, Math.min(_maxFretFor(arr), Number(fret) || 0));
     const note = { time, string, fret: f, sustain: step, techniques: {} };
     const cmd = new AddNoteCmd(note);
     S.history.exec(cmd);
@@ -183,7 +184,7 @@ export function editorToggleEntryPreview(force) {
 function _editorSetSelectedFret(fret) {
     const idxs = _editorCurrentNoteIndices();
     if (!idxs.length) return _editorPlaceAtCaret(fret);   // no selection → keyboard entry
-    const next = Math.max(0, Math.min(24, Number(fret) || 0));
+    const next = Math.max(0, Math.min(_maxFretFor(S.arrangements[S.currentArr]), Number(fret) || 0));
     S.history.exec(new ChangeFretGroupCmd(idxs, next));
     _editBlipAt();
     host.draw();
@@ -226,7 +227,7 @@ function _editorAdjustSelectedFret(delta) {
     const nn = notes();
     for (const i of idxs) {
         if (!nn[i]) continue;
-        const next = Math.max(0, Math.min(24, (parseInt(nn[i].fret) || 0) + delta));
+        const next = Math.max(0, Math.min(_maxFretFor(S.arrangements[S.currentArr]), (parseInt(nn[i].fret) || 0) + delta));
         S.history.exec(new ChangeFretCmd(i, next));
     }
     _editBlipAt();

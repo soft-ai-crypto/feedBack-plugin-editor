@@ -19,7 +19,7 @@ import { _openMidiForArr, _soundingPitchPure, _stringCountFor } from './lanes.js
 import { notes } from './notes.js';
 import { S } from './state.js';
 import { PIANO_NOTE_NAMES, _noteNamesForKeyPure } from './theory.js';
-import { KEYS_PATTERN, _arrTypeKind, arrKind } from './instrument.js';
+import { KEYS_PATTERN, _arrTypeKind, _maxFretFor, arrKind } from './instrument.js';
 // Re-export so the many sites that import KEYS_PATTERN from keys.js keep working;
 // its canonical definition now lives in the instrument-identity leaf.
 export { KEYS_PATTERN };
@@ -141,6 +141,7 @@ export function _rollPitchCtxFor(arr) {
         openMidi: _openMidiForArr(arr, laneCount),
         tuning,
         capo: Number(arr.capo) || 0,
+        maxFret: _maxFretFor(arr),
     };
 }
 

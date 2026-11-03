@@ -7,7 +7,7 @@
  */
 
 import { S } from './state.js';
-import { _isBassArr } from './instrument.js';
+import { _isBassArr, _isCarnaticMandolinArr } from './instrument.js';
 
 export const MAX_LANES = 8;
 
@@ -43,6 +43,8 @@ const STRING_LABEL_COLORS = {
     'B↓': '#E07A8A', // 7-string low B          — dusty pink
     'C↑': '#E07A8A', // 6-string bass high C    — dusty pink
     'F#↓': '#8AA0B8',// 8-string low F#         — steel blue
+    'C#': '#C473FF',
+    'G#': '#FF8A00',
 };
 
 export function colorForLane(l) {
@@ -68,6 +70,13 @@ function isBassArr() {
     const arr = S.arrangements[S.currentArr];
     if (!arr) return false;
     return _isBassArr(arr);
+}
+
+function isCarnaticMandolinArr() {
+    if (!S.arrangements.length) return false;
+    const arr = S.arrangements[S.currentArr];
+    if (!arr) return false;
+    return _isCarnaticMandolinArr(arr);
 }
 
 // Active arrangement string count. Mirrors lib/song.py:arrangement_string_count
@@ -118,6 +127,7 @@ export function _seedExtendedStringsFromTuning(arrangements, authoritativeLength
 
 export function _stringCountFor(arr) {
     if (!arr) return 6;
+    if (_isCarnaticMandolinArr(arr)) return 5;
     const isBass = _isBassArr(arr);
     const baseline = isBass ? 4 : 6;
     // User-added strings via the Strings modal — authoritative even
@@ -167,7 +177,8 @@ export function lanes() {
 // tuning offsets. This is the string's positional identity: it drives the
 // lane colours and is the display label whenever the chart is in standard
 // tuning. Pure so both are testable without S.
-export function _nominalLaneLabelsPure(L, isBass) {
+export function _nominalLaneLabelsPure(L, isBass, isCarnatic) {
+    if (isCarnatic) return ['C#', 'G#', 'C#', 'G#', 'C#'].slice(0, Math.max(0, L));
     if (isBass) {
         // 4-string standard: E A D G
         // 5-string: B↓ E A D G  (low B added)
@@ -199,8 +210,8 @@ const _LANE_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 
 // (what the Strings modal edits, and what a tab header prints), and the
 // capo is surfaced separately. `_soundingPitchPure` remains the one place
 // that adds it.
-export function _tunedLaneLabelsPure(L, isBass, openMidi, tuning) {
-    const nominal = _nominalLaneLabelsPure(L, isBass);
+export function _tunedLaneLabelsPure(L, isBass, openMidi, tuning, isCarnatic) {
+    const nominal = _nominalLaneLabelsPure(L, isBass, isCarnatic);
     const offs = Array.isArray(tuning) ? tuning : [];
     const shifted = (s) => {
         const value = Number(offs[s]);
@@ -230,15 +241,16 @@ export function _tunedLaneLabelsPure(L, isBass, openMidi, tuning) {
 // The active arrangement's NOMINAL labels — what colorForLane keys off,
 // and what main.js seeds into LC.nominalLabels once per frame.
 export function nominalLaneLabels() {
-    return _nominalLaneLabelsPure(lanes(), isBassArr());
+    return _nominalLaneLabelsPure(lanes(), isBassArr(), isCarnaticMandolinArr());
 }
 
 export function laneLabels() {
     const L = lanes();
     const arr = S.arrangements.length ? S.arrangements[S.currentArr] : null;
     const isBass = isBassArr();
-    if (!arr) return _nominalLaneLabelsPure(L, isBass);
-    return _tunedLaneLabelsPure(L, isBass, _openMidiForArr(arr, L), arr.tuning);
+    const isCarnatic = isCarnaticMandolinArr();
+    if (!arr) return _nominalLaneLabelsPure(L, isBass, isCarnatic);
+    return _tunedLaneLabelsPure(L, isBass, _openMidiForArr(arr, L), arr.tuning, isCarnatic);
 }
 
 export function strToLane(s) { return (lanes() - 1) - s; }
@@ -257,7 +269,12 @@ const _BASS_OPEN_MIDI   = [28, 33, 38, 43];           // 4-string standard
 // Return the open-string MIDI array for the active arrangement,
 // extended/trimmed to `laneCount` strings. Extended-range strings
 // are prepended at the low end (matching how AddStringCmd works).
+const _CARNATIC_MANDOLIN_OPEN_MIDI = [49, 56, 61, 68, 73]; // C#3 G#3 C#4 G#4 C#5
+
 export function _openMidiForArr(arr, laneCount) {
+    if (_isCarnaticMandolinArr(arr)) {
+        return _CARNATIC_MANDOLIN_OPEN_MIDI.slice(0, laneCount);
+    }
     const isBass = _isBassArr(arr);
     const base = isBass ? _BASS_OPEN_MIDI.slice() : _GUITAR_OPEN_MIDI.slice();
     // Extend low end: each additional low string is 5 semitones below

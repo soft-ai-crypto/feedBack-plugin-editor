@@ -33,6 +33,7 @@ const _TYPE_KIND = {
     guitar: 'guitar', lead: 'guitar', rhythm: 'guitar',
     drums: 'drums', drum: 'drums',
     vocals: 'vocals', vocal: 'vocals', voice: 'vocals',
+    'carnatic-mandolin': 'carnatic-mandolin',
 };
 
 export function _typeKind(rawType) {
@@ -61,6 +62,7 @@ export function _arrKindFromName(name) {
     const n = String(name || '');
     if (KEYS_PATTERN.test(n)) return 'keys';
     if (/^drums/i.test(n)) return 'drums';
+    if (/carnatic mandolin/i.test(n)) return 'carnatic-mandolin';
     if (/bass/i.test(n)) return 'bass';
     return 'guitar';
 }
@@ -75,7 +77,7 @@ export function arrKind(arr) {
 
 // True only for instrument kinds that have strings/tuning to edit.
 export function _isFrettedKind(kind) {
-    return kind === 'guitar' || kind === 'bass';
+    return kind === 'guitar' || kind === 'bass' || kind === 'carnatic-mandolin';
 }
 
 // Bass predicate — type-authoritative, but its NAME fallback stays the INDEPENDENT
@@ -87,4 +89,16 @@ export function _isFrettedKind(kind) {
 export function _isBassArr(arr) {
     const k = _arrTypeKind(arr);
     return k ? k === 'bass' : /bass/i.test((arr && arr.name) || '');
+}
+
+// Carnatic mandolin — type-authoritative, else the name contains
+// "carnatic mandolin" (any case). Independent of guitar/bass so a typed
+// pack named anything still gets 5 strings / 0–15 frets.
+export function _isCarnaticMandolinArr(arr) {
+    const k = _arrTypeKind(arr);
+    return k ? k === 'carnatic-mandolin' : /carnatic mandolin/i.test((arr && arr.name) || '');
+}
+
+export function _maxFretFor(arr) {
+    return _isCarnaticMandolinArr(arr) ? 15 : 24;
 }
