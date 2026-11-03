@@ -61,7 +61,9 @@ export const SWARAS = Object.keys(SWARA_NAMES).map((lab) => ({
 }));
 
 // ── 72 Melakarta (janaka) names, numbered 1–72 ──────────────────────
-// Chakras of 6. 1–36 śuddha madhyama (M1); 37–72 prati madhyama (M2).
+// Visible name is the common plain-English spelling. Text after `|` is
+// extra search text only (not shown). Chakras of 6.
+// 1–36 śuddha madhyama (M1); 37–72 prati madhyama (M2).
 export const MELA = [
     // Indu
     'Kanakangi', 'Ratnangi', 'Ganamurti', 'Vanaspati', 'Manavati', 'Tanarupi',
@@ -72,7 +74,7 @@ export const MELA = [
     // Veda
     'Jhankaradhvani', 'Natabhairavi', 'Keeravani', 'Kharaharapriya', 'Gaurimanohari', 'Varunapriya',
     // Bana
-    'Mararanjani', 'Charukesi', 'Sarasangi', 'Harikambhoji', 'Dheerasankarabharanam', 'Naganandini',
+    'Mararanjani', 'Charukesi', 'Sarasangi', 'Harikambhoji', 'Shankarabharanam|Dheerasankarabharanam', 'Naganandini',
     // Ritu
     'Yagapriya', 'Ragavardhini', 'Gangeyabhushani', 'Vagadheeswari', 'Shulini', 'Chalanata',
     // Rishi
@@ -84,7 +86,7 @@ export const MELA = [
     // Disi
     'Shamalangi', 'Shanmukhapriya', 'Simhendramadhyamam', 'Hemavati', 'Dharmavati', 'Neetimati',
     // Rudra
-    'Kantamani', 'Rishabhapriya', 'Latangi', 'Vachaspati', 'Mechakalyani', 'Chitrambari',
+    'Kantamani', 'Rishabhapriya', 'Latangi', 'Vachaspati', 'Kalyani|Mechakalyani', 'Chitrambari',
     // Aditya
     'Sucharitra', 'Jyotisvarupini', 'Dhatuvardhini', 'Nasikabhushani', 'Kosalam', 'Rasikapriya',
 ];
@@ -106,8 +108,9 @@ export function melaMap(n) {
 }
 
 // ── Janya ragas ─────────────────────────────────────────────────────
-// parent = janaka (melakarta) number. aro / ava are swara sequences.
-// Spaces optional; S' is the upper Sa. Edit this list freely.
+// parent = janaka (melakarta) number. aro = ascending, ava = descending.
+// Spaces optional; S' is the upper Sa. aka = extra search text, not shown.
+// Append a new raga anywhere in this list.
 export const JANYA = [
     // Famous pentatonic / sampurna janyas (kept first, as in the reference)
     { name: 'Mohanam', parent: 28, aro: "S R2 G3 P D2 S'", ava: "S' D2 P G3 R2 S" },
@@ -125,6 +128,8 @@ export const JANYA = [
     { name: 'Dhanyasi', parent: 8, aro: "SG2M1PN2S'", ava: "S'N2D1PM1G2R1S" },
     { name: 'Bhoopalam', parent: 8, aro: "SR1G2PD1S'", ava: "S'D1PG2R1S" },
     { name: 'Shuddha Seemantini', parent: 8, aro: "SR1G2M1PD1S'", ava: "S'D1PM1G2R1S" },
+    // Popular name of the Hanumatodi scale.
+    { name: 'Todi', parent: 8, aro: "S R1 G2 M1 P D1 N2 S'", ava: "S' N2 D1 P M1 G2 R1 S" },
 
     // Janyas of 9 Dhenuka
     { name: 'Udayaravichandrika', parent: 9, aro: "SG2M1PN3S'", ava: "S'N3PM1G2S" },
@@ -168,7 +173,7 @@ export const JANYA = [
     { name: 'Brindavana Saranga', parent: 22, aro: "SR2M1PN3S'", ava: "S'N2PM1R2G2R2S" },
     { name: 'Kapi', parent: 22, aro: "SR2M1PN3S'", ava: "S'N2D2N2PM1G2R2S" },
     { name: 'Devamanohari', parent: 22, aro: "SR2M1PD2N2S'", ava: "S'N2D2N2PM1R2S" },
-    { name: 'Shree', parent: 22, aro: "SR2M1PN2S'", ava: "S'N2PD2N2PM1R2G2R2S" },
+    { name: 'Sri', aka: 'Shree', parent: 22, aro: "SR2M1PN2S'", ava: "S'N2PD2N2PM1R2G2R2S" },
     { name: 'Bageshri', parent: 22, aro: "SG2M1D2N2S'", ava: "S'N2D2M1PD2G2M1R2S" },
     { name: 'Mukhari', parent: 22, aro: "SR2M1PN2D2S'", ava: "S'N2D1PM1G2R2S" },
     { name: 'Kanada', parent: 22, aro: "SR2PG2M1D2N2S'", ava: "S'N2PM1G2M1R2S" },
@@ -187,8 +192,12 @@ export const JANYA = [
     { name: 'Karnataka Behag', parent: 28, aro: "SR2G3M1PD2N2S'", ava: "S'N2D2N2PD2M1G3R2S" },
     { name: 'Sahana', parent: 28, aro: "SR2G3M1PM1D2N2S'", ava: "S'N2S'D2N2D2PM1G3M1R2G3R2S" },
     { name: 'Kuntalavarali', parent: 28, aro: "SM1PD2N2D2S'", ava: "S'N2D2PM1S" },
+    // Bhashanga: N3 is the anya swara. Vakra.
+    { name: 'Behag', parent: 28, aro: "S G3 M1 P N3 D2 N2 S'", ava: "S' N2 D2 P M1 G3 R2 S" },
+    // Vakra.
+    { name: 'Natakurinji', aka: 'Nattakurinji', parent: 28, aro: "S R2 G3 M1 N2 D2 N2 P D2 N2 S'", ava: "S' N2 D2 M1 G3 R2 S" },
 
-    // Janyas of 29 Dheerasankarabharanam
+    // Janyas of 29 Shankarabharanam
     { name: 'Arabhi', parent: 29, aro: "SR2M1PD2S'", ava: "S'N3D2PM1G3R2S" },
     { name: 'Atana', parent: 29, aro: "SR2M1PN2S'", ava: "S'N2D2PM1G2M1R2S" },
     { name: 'Begada', parent: 29, aro: "SG3R2G3M1PD2PS'", ava: "S'N3D2PM1G3R2S" },
@@ -217,7 +226,7 @@ export const JANYA = [
     // Janyas of 60 Neetimati
     { name: 'Hamsanadam', parent: 60, aro: "SR2M2PD3N3S'", ava: "S'N3D3PM2R2S" },
 
-    // Janyas of 65 Mechakalyani
+    // Janyas of 65 Kalyani
     { name: 'Bhoopali', parent: 65, aro: "SR2G3PD2S'", ava: "S'D2PG3R2S" },
     { name: 'Hindol', parent: 65, aro: "SG3M2D2N3S'", ava: "S'N3D2M2G3S" },
     { name: 'Yamuna Kalyani', parent: 65, aro: "SR2G3M2PD2N3S'", ava: "S'N3D2PM2G3M1G3R2S" },
@@ -228,6 +237,40 @@ export const JANYA = [
 ];
 
 // ── Raga builders ───────────────────────────────────────────────────
+function _melaParts(entry) {
+    const parts = String(entry ?? '').split('|').map((s) => s.trim()).filter(Boolean);
+    return { name: parts[0] || '', aka: parts.slice(1) };
+}
+
+function _akaList(aka) {
+    if (!aka) return [];
+    const raw = Array.isArray(aka) ? aka : String(aka).split('|');
+    return raw.map((s) => String(s).trim()).filter(Boolean);
+}
+
+/** Search key: lower case, accents removed (ā → a). */
+export function ragaKey(s) {
+    return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/** Melakarta dropdown rows, in catalogue order. `label` is what is shown. */
+export function melakartaOptions() {
+    return MELA.map((entry, i) => {
+        const { name, aka } = _melaParts(entry);
+        return { value: `m:${i + 1}`, name, aka, label: `${i + 1} · ${name}` };
+    });
+}
+
+/** Janya dropdown rows, in catalogue order. */
+export function janyaOptions() {
+    return JANYA.map((j, i) => ({
+        value: `j:${i}`,
+        name: j.name,
+        aka: _akaList(j.aka),
+        label: j.name,
+    }));
+}
+
 export function mod12(x) {
     return ((x % 12) + 12) % 12;
 }
@@ -276,7 +319,7 @@ function _finishRaga(name, n, m, aro, ava, isJanya) {
 }
 
 function _buildMela(n) {
-    const name = MELA[n - 1];
+    const { name } = _melaParts(MELA[n - 1]);
     if (!name) return null;
     const m = melaMap(n);
     const o = "S R G M P D N S'".split(' ');
@@ -300,9 +343,10 @@ function _buildJanya(j) {
  *   buildRaga('m:15')           // melakarta 15 Mayamalavagowla
  *   buildRaga(15)               // same
  *   buildRaga('j:0')            // janya by index in JANYA
- *   buildRaga('Mohanam')        // janya or mela by name
+ *   buildRaga('Mohanam')        // janya or mela by name (or aka / text after `|`)
  *
- * Returns null if unknown. Read `.scale` for pitch classes 0–11 (Sa=0).
+ * Name lookup ignores case and accents. Returns null if unknown.
+ * Read `.scale` for pitch classes 0–11 (Sa=0).
  */
 export function buildRaga(v) {
     if (typeof v === 'number' && Number.isFinite(v)) return _buildMela(v);
@@ -312,10 +356,13 @@ export function buildRaga(v) {
     if (melaKey) return _buildMela(+melaKey[1]);
     const janyaKey = s.match(/^j:(\d+)$/i);
     if (janyaKey) return _buildJanya(JANYA[+janyaKey[1]]);
-    const lower = s.toLowerCase();
-    const janya = JANYA.find((j) => j.name.toLowerCase() === lower);
+    const key = ragaKey(s);
+    const janya = JANYA.find((j) => [j.name, ..._akaList(j.aka)].some((n) => ragaKey(n) === key));
     if (janya) return _buildJanya(janya);
-    const mi = MELA.findIndex((n) => n.toLowerCase() === lower);
+    const mi = MELA.findIndex((entry) => {
+        const { name, aka } = _melaParts(entry);
+        return ragaKey(name) === key || aka.some((a) => ragaKey(a) === key);
+    });
     if (mi >= 0) return _buildMela(mi + 1);
     return null;
 }

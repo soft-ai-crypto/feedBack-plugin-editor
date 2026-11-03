@@ -51,6 +51,7 @@ import {
     activateTrackAudioSource,
 } from './audio.js';
 import { _mixerClapState, _mixerPanelRefresh, _mixerPartStripState, editorToggleMixerPanel, initMixerPanel } from './mixer-panel.js';
+import { _carnaticPanelRefresh, initCarnaticPanel } from './carnatic-panel.js';
 import {
     _barSpanForTimes, _editorApplyScrollBounds,
     _editorClampScrollX, _loopReliftBeats,
@@ -1269,6 +1270,7 @@ function updateStatus() {
     _drumPadStripRefresh();
     _fretboardStripRefresh();
     _mixerPanelRefresh();
+    _carnaticPanelRefresh();
     _transportBarTick();
     setStatus('Ready');
 }
@@ -2349,6 +2351,7 @@ function init() {
     initTransportBar();
     initToolbars();
     initMixerPanel();
+    initCarnaticPanel();
 
     // Observe screen visibility for resize + the entry landing, and — the
     // other direction — to silence the editor when you navigate away. Held
@@ -2512,6 +2515,7 @@ draw = function () {
     _refreshPartsViewButton();
     _refreshKeyControls();
     _refreshViewSwitch();
+    _carnaticPanelRefresh();
     return _origDraw.apply(this, arguments);
 };
 

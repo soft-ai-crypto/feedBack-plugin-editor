@@ -350,6 +350,36 @@
                 <button id="editor-fretboard-collapse" class="absolute right-1 top-1 z-10 px-1.5 py-0.5 rounded bg-dark-700/90 text-[10px] text-gray-300 hover:text-white hover:bg-dark-600" title="Hide the fretboard strip">Hide</button>
                 <canvas id="editor-fretboard-canvas" class="w-full h-full block"></canvas>
             </div>
+            <!-- Carnatic notation panel — shown only on a Carnatic Mandolin
+                 track; built by src/carnatic-panel.js. -->
+            <div id="editor-carnatic-panel" class="hidden absolute top-2 right-3 z-20 w-72 overflow-y-auto rounded-md border border-gray-700/80 bg-dark-800/95 backdrop-blur-sm p-3 text-xs text-gray-200 space-y-2">
+                <div class="font-medium text-gray-100">Carnatic notation</div>
+                <label class="flex items-center gap-2">Rāga
+                    <select id="editor-carnatic-raga" class="flex-1 bg-dark-700 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 outline-none"></select>
+                </label>
+                <label class="flex items-center gap-2">BPM
+                    <input id="editor-carnatic-bpm" type="number" min="30" max="240" value="90" class="w-16 bg-dark-700 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 outline-none">
+                </label>
+                <label class="flex items-center gap-2">Gati
+                    <select id="editor-carnatic-gati" class="flex-1 bg-dark-700 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 outline-none">
+                        <option value="4">Chatusra (4)</option>
+                        <option value="3">Tisra (3)</option>
+                        <option value="5">Khanda (5)</option>
+                        <option value="7">Misra (7)</option>
+                        <option value="9">Sankirna (9)</option>
+                    </select>
+                </label>
+                <label class="flex items-center gap-2">Kāla
+                    <select id="editor-carnatic-kala" class="flex-1 bg-dark-700 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 outline-none">
+                        <option value="1">Prathama (1×)</option>
+                        <option value="2">Dwitiya (2×)</option>
+                        <option value="4">Tritiya (4×)</option>
+                    </select>
+                </label>
+                <textarea id="editor-carnatic-notation" rows="6" spellcheck="false" placeholder="S R G M P D N S'" class="w-full bg-dark-700 border border-gray-700 rounded px-1.5 py-1 font-mono text-xs text-gray-300 outline-none"></textarea>
+                <button id="editor-carnatic-apply" type="button" class="px-2 py-1 bg-dark-600 hover:bg-dark-500 rounded text-xs font-medium">Apply</button>
+                <ul id="editor-carnatic-warnings" class="text-amber-300 grid gap-1"></ul>
+            </div>
             <!-- The loop region UI lives on the canvas ruler now (src/ruler.js,
                  workspace-shell B3): drag the ruler's upper half to paint a
                  loop (Shift = free), drag its edge grips to resize, Alt+←/→
