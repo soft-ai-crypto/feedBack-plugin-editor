@@ -925,7 +925,21 @@ export function _composeSongDuration() {
         ? timeOf(S.beats, S.beats.length - 1)
         : 0;
     let contentEnd = 0;
-    for (const t of _guideSourceTimes()) if (t > contentEnd) contentEnd = t;
+    const bump = (t) => { if (t > contentEnd) contentEnd = t; };
+    // Same notes/hits as _guideSourceTimes(), but notes bound the song by
+    // their sounding end (time + sustain). Guide claps still fire on starts.
+    if (S.drumEditMode) {
+        const hits = (S.drumTab && Array.isArray(S.drumTab.hits)) ? S.drumTab.hits : [];
+        for (const h of hits) bump(h.t);
+    } else if (editorPlayAllTracksEnabled()) {
+        for (const a of S.arrangements) {
+            if (a && Array.isArray(a.notes)) for (const n of a.notes) bump(n.time + (n.sustain || 0));
+        }
+        const hits = (S.drumTab && Array.isArray(S.drumTab.hits)) ? S.drumTab.hits : [];
+        for (const h of hits) bump(h.t);
+    } else if (S.arrangements.length) {
+        for (const n of notes()) bump(n.time + (n.sustain || 0));
+    }
     return _composeSongDurationPure(gridEnd, contentEnd, userLen);
 }
 
