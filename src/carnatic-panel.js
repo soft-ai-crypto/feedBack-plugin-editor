@@ -10,6 +10,7 @@ import { host } from './host.js';
 import { _isCarnaticMandolinArr } from './instrument.js';
 import { notes } from './notes.js';
 import { S } from './state.js';
+import { getTabBPM } from './sync-tempo.js';
 import { _editorEscHtml, setStatus } from './ui.js';
 
 class CompositeCmd {
@@ -143,6 +144,7 @@ function _panelSnapshot() {
 }
 
 let _filling = false;
+let _bpmDisplayWrapped = false;
 
 /** Write the five controls onto the current arrangement (or drop the key). */
 export function flushCarnaticPanel() {
@@ -152,6 +154,17 @@ export function flushCarnaticPanel() {
     const payload = _panelSnapshot();
     if (payload) arr.editor_carnatic = payload;
     else delete arr.editor_carnatic;
+}
+
+function songBpmRounded() {
+    const bpm = getTabBPM();
+    if (!Number.isFinite(bpm) || bpm <= 0) return 120;
+    return Math.round(bpm);
+}
+
+function fillCarnaticBpmFromSong() {
+    const bpmEl = document.getElementById('editor-carnatic-bpm');
+    if (bpmEl) bpmEl.value = String(songBpmRounded());
 }
 
 function fillCarnaticPanel(arr) {
@@ -169,8 +182,7 @@ function fillCarnaticPanel(arr) {
             ragaEl.value = data.raga;
             if (ragaEl.value !== data.raga) ragaEl.value = CARNATIC_DEFAULT_RAGA;
         }
-        const bpmEl = document.getElementById('editor-carnatic-bpm');
-        if (bpmEl) bpmEl.value = String(data.bpm);
+        fillCarnaticBpmFromSong();
         const gatiEl = document.getElementById('editor-carnatic-gati');
         if (gatiEl) gatiEl.value = String(data.gati);
         const kalaEl = document.getElementById('editor-carnatic-kala');
@@ -191,12 +203,15 @@ function editorApplyCarnaticNotation() {
         showWarnings(['Unknown rāga']);
         return;
     }
-    const bpm = Math.max(1, Number((document.getElementById('editor-carnatic-bpm') || {}).value) || 90);
+    fillCarnaticBpmFromSong();
+    const bpm = Math.max(1, getTabBPM() || 90);
     const gati = Math.max(1, Number((document.getElementById('editor-carnatic-gati') || {}).value) || 4);
     const kala = Math.max(1, Number((document.getElementById('editor-carnatic-kala') || {}).value) || 1);
     const text = (document.getElementById('editor-carnatic-notation') || {}).value || '';
     const { ev, warn } = parseNotation(text, raga, false);
-    const next = eventsToEditorNotes(ev, bpm, gati, kala);
+    const beats = S.beats || [];
+    const t0 = beats.length && Number.isFinite(beats[0].time) ? beats[0].time : 0;
+    const next = eventsToEditorNotes(ev, bpm, gati, kala).map((n) => ({ ...n, time: n.time + t0 }));
     const nn = notes();
     const cmds = [];
     if (nn.length) cmds.push(new DeleteNotesCmd(nn.map((_, i) => i)));
@@ -248,6 +263,15 @@ export function initCarnaticPanel() {
     const btn = document.getElementById('editor-carnatic-apply');
     if (btn) btn.addEventListener('click', editorApplyCarnaticNotation);
     _bindPanelPersist();
+    if (!_bpmDisplayWrapped) {
+        const prev = host.updateBPMDisplay;
+        host.updateBPMDisplay = (...a) => {
+            const r = typeof prev === 'function' ? prev(...a) : undefined;
+            fillCarnaticBpmFromSong();
+            return r;
+        };
+        _bpmDisplayWrapped = true;
+    }
     _filledFor = null;
     _carnaticPanelRefresh();
 }
