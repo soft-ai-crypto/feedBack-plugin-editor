@@ -11,6 +11,7 @@ import { _isCarnaticMandolinArr } from './instrument.js';
 import { notes } from './notes.js';
 import { S } from './state.js';
 import { getTabBPM } from './sync-tempo.js';
+import { MIN_MEASURE, TempoGridCmd, _tempoAppendBarlinePure } from './tempo.js';
 import { _editorEscHtml, setStatus } from './ui.js';
 
 class CompositeCmd {
@@ -106,6 +107,34 @@ const CARNATIC_GATI = new Set([3, 4, 5, 7, 9]);
 const CARNATIC_KALA = new Set([1, 2, 4]);
 const CARNATIC_NOTATION_MAX = 100000;
 const CARNATIC_RAGA_RE = /^[mj]:\d{1,6}$/;
+const CARNATIC_GRID_MAX_BARS = 200;
+
+/** Append whole copies of the last complete bar until the last beat covers endTime. */
+function _carnaticExtendGridTo(beats, endTime) {
+    if (!Array.isArray(beats) || beats.length < 2 || !Number.isFinite(endTime)) return null;
+    const lastBeat = beats[beats.length - 1];
+    if (!lastBeat || !Number.isFinite(lastBeat.time) || endTime <= lastBeat.time) return null;
+    const downbeats = [];
+    for (let i = 0; i < beats.length; i++) {
+        if (beats[i] && beats[i].measure > 0) downbeats.push(i);
+    }
+    if (downbeats.length < 2) return null;
+    const lastDb = downbeats[downbeats.length - 1];
+    const prevDb = downbeats[downbeats.length - 2];
+    const tLastDb = Number(beats[lastDb].time);
+    const tPrevDb = Number(beats[prevDb].time);
+    const barDur = tLastDb - tPrevDb;
+    if (!Number.isFinite(barDur) || !(barDur > 0)) return null;
+    let working = beats;
+    for (let n = 1; n <= CARNATIC_GRID_MAX_BARS; n++) {
+        const lastT = working[working.length - 1] && working[working.length - 1].time;
+        if (Number.isFinite(lastT) && lastT >= endTime) break;
+        const appended = _tempoAppendBarlinePure(working, tLastDb + n * barDur, MIN_MEASURE);
+        if (!appended || !appended.beats) break;
+        working = appended.beats;
+    }
+    return working === beats ? null : working;
+}
 
 /** Sanitized panel snapshot, or null when everything is at the empty default. */
 export function sanitizeEditorCarnatic(raw) {
@@ -212,10 +241,20 @@ function editorApplyCarnaticNotation() {
     const beats = S.beats || [];
     const t0 = beats.length && Number.isFinite(beats[0].time) ? beats[0].time : 0;
     const next = eventsToEditorNotes(ev, bpm, gati, kala).map((n) => ({ ...n, time: n.time + t0 }));
+    let endTime = -Infinity;
+    for (const n of next) {
+        const t = Number(n.time);
+        if (!Number.isFinite(t)) continue;
+        const sus = Number(n.sustain);
+        const end = t + (Number.isFinite(sus) ? sus : 0);
+        if (end > endTime) endTime = end;
+    }
     const nn = notes();
     const cmds = [];
     if (nn.length) cmds.push(new DeleteNotesCmd(nn.map((_, i) => i)));
     for (const n of next) cmds.push(new AddNoteCmd(n));
+    const newBeats = _carnaticExtendGridTo(beats, endTime);
+    if (newBeats) cmds.push(new TempoGridCmd(beats, newBeats, 'carnatic-grid'));
     if (cmds.length) S.history.exec(new CompositeCmd(cmds));
     showWarnings(warn);
     host.draw();
