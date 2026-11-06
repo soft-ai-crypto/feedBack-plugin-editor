@@ -97,6 +97,91 @@ function showWarnings(list) {
     ul.innerHTML = (list || []).map((w) => `<li>${_editorEscHtml(w)}</li>`).join('');
 }
 
+const CARNATIC_DEFAULT_RAGA = 'm:1';
+const CARNATIC_DEFAULT_BPM = 90;
+const CARNATIC_DEFAULT_GATI = 4;
+const CARNATIC_DEFAULT_KALA = 1;
+const CARNATIC_GATI = new Set([3, 4, 5, 7, 9]);
+const CARNATIC_KALA = new Set([1, 2, 4]);
+const CARNATIC_NOTATION_MAX = 100000;
+const CARNATIC_RAGA_RE = /^[mj]:\d{1,6}$/;
+
+/** Sanitized panel snapshot, or null when everything is at the empty default. */
+export function sanitizeEditorCarnatic(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    let notation = typeof raw.notation === 'string' ? raw.notation : '';
+    notation = notation.replace(/\0/g, '');
+    if (notation.length > CARNATIC_NOTATION_MAX) notation = notation.slice(0, CARNATIC_NOTATION_MAX);
+    let raga = typeof raw.raga === 'string' ? raw.raga.trim() : '';
+    if (!CARNATIC_RAGA_RE.test(raga)) raga = CARNATIC_DEFAULT_RAGA;
+    let bpm = Number(raw.bpm);
+    if (!Number.isFinite(bpm)) bpm = CARNATIC_DEFAULT_BPM;
+    bpm = Math.round(bpm);
+    if (bpm < 30 || bpm > 240) bpm = CARNATIC_DEFAULT_BPM;
+    let gati = Number(raw.gati);
+    if (!CARNATIC_GATI.has(gati)) gati = CARNATIC_DEFAULT_GATI;
+    let kala = Number(raw.kala);
+    if (!CARNATIC_KALA.has(kala)) kala = CARNATIC_DEFAULT_KALA;
+    if (!notation.trim()
+            && raga === CARNATIC_DEFAULT_RAGA
+            && bpm === CARNATIC_DEFAULT_BPM
+            && gati === CARNATIC_DEFAULT_GATI
+            && kala === CARNATIC_DEFAULT_KALA) {
+        return null;
+    }
+    return { notation, raga, bpm, gati, kala };
+}
+
+function _panelSnapshot() {
+    return sanitizeEditorCarnatic({
+        raga: (document.getElementById('editor-carnatic-raga') || {}).value,
+        bpm: (document.getElementById('editor-carnatic-bpm') || {}).value,
+        gati: (document.getElementById('editor-carnatic-gati') || {}).value,
+        kala: (document.getElementById('editor-carnatic-kala') || {}).value,
+        notation: (document.getElementById('editor-carnatic-notation') || {}).value,
+    });
+}
+
+let _filling = false;
+
+/** Write the five controls onto the current arrangement (or drop the key). */
+export function flushCarnaticPanel() {
+    if (_filling) return;
+    const arr = S.arrangements && S.arrangements[S.currentArr];
+    if (!arr || !_isCarnaticMandolinArr(arr)) return;
+    const payload = _panelSnapshot();
+    if (payload) arr.editor_carnatic = payload;
+    else delete arr.editor_carnatic;
+}
+
+function fillCarnaticPanel(arr) {
+    const data = sanitizeEditorCarnatic(arr && arr.editor_carnatic) || {
+        notation: '',
+        raga: CARNATIC_DEFAULT_RAGA,
+        bpm: CARNATIC_DEFAULT_BPM,
+        gati: CARNATIC_DEFAULT_GATI,
+        kala: CARNATIC_DEFAULT_KALA,
+    };
+    _filling = true;
+    try {
+        const ragaEl = document.getElementById('editor-carnatic-raga');
+        if (ragaEl) {
+            ragaEl.value = data.raga;
+            if (ragaEl.value !== data.raga) ragaEl.value = CARNATIC_DEFAULT_RAGA;
+        }
+        const bpmEl = document.getElementById('editor-carnatic-bpm');
+        if (bpmEl) bpmEl.value = String(data.bpm);
+        const gatiEl = document.getElementById('editor-carnatic-gati');
+        if (gatiEl) gatiEl.value = String(data.gati);
+        const kalaEl = document.getElementById('editor-carnatic-kala');
+        if (kalaEl) kalaEl.value = String(data.kala);
+        const textEl = document.getElementById('editor-carnatic-notation');
+        if (textEl) textEl.value = data.notation;
+    } finally {
+        _filling = false;
+    }
+}
+
 function editorApplyCarnaticNotation() {
     const arr = S.arrangements && S.arrangements[S.currentArr];
     if (!arr || !_isCarnaticMandolinArr(arr)) return;
@@ -125,22 +210,44 @@ function editorApplyCarnaticNotation() {
         : `Applied ${next.length} notes`);
 }
 
-let _shown = null;
+let _filledFor = null;
 
 export function _carnaticPanelRefresh() {
     const panel = $panel();
     if (!panel) return;
     const arr = S.arrangements && S.arrangements[S.currentArr];
     const show = !!(arr && _isCarnaticMandolinArr(arr));
-    if (_shown === show) return;
-    _shown = show;
     panel.classList.toggle('hidden', !show);
+    // Fill on song open AND arrangement switch even when the panel stays
+    // visible (two Carnatic Mandolin tracks). Do not refill every draw tick.
+    const token = `${S.sessionId || ''}\0${S.currentArr}\0${show ? 1 : 0}`;
+    if (_filledFor === token) return;
+    _filledFor = token;
+    if (show) fillCarnaticPanel(arr);
+}
+
+function _bindPanelPersist() {
+    const ids = [
+        'editor-carnatic-raga',
+        'editor-carnatic-bpm',
+        'editor-carnatic-gati',
+        'editor-carnatic-kala',
+        'editor-carnatic-notation',
+    ];
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.carnaticPersist) continue;
+        el.dataset.carnaticPersist = '1';
+        el.addEventListener('input', flushCarnaticPanel);
+        el.addEventListener('change', flushCarnaticPanel);
+    }
 }
 
 export function initCarnaticPanel() {
     fillRagas();
     const btn = document.getElementById('editor-carnatic-apply');
     if (btn) btn.addEventListener('click', editorApplyCarnaticNotation);
-    _shown = null;
+    _bindPanelPersist();
+    _filledFor = null;
     _carnaticPanelRefresh();
 }

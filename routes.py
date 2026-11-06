@@ -632,6 +632,81 @@ def _apply_tempo_marks(manifest: dict, marks) -> None:
         manifest["editor_tempo_marks"] = marks
     else:
         manifest.pop("editor_tempo_marks", None)
+
+
+_CARNATIC_GATI = {3, 4, 5, 7, 9}
+_CARNATIC_KALA = {1, 2, 4}
+_CARNATIC_RAGA_RE = re.compile(r"^[mj]:\d{1,6}$")
+_CARNATIC_NOTATION_MAX = 100000
+_CARNATIC_DEFAULT_RAGA = "m:1"
+_CARNATIC_DEFAULT_BPM = 90
+_CARNATIC_DEFAULT_GATI = 4
+_CARNATIC_DEFAULT_KALA = 1
+
+
+def _coerce_editor_carnatic(value):
+    """`editor_carnatic` as a sanitized per-arrangement panel snapshot.
+
+    Same supplementary-intent contract as `editor_tempo_marks`: invalid input
+    is dropped, never raised on. Empty / all-defaults returns ``{}`` so the
+    apply path can omit the manifest key (old packs stay byte-identical).
+    """
+    if not isinstance(value, dict):
+        return {}
+    notation = value.get("notation")
+    if not isinstance(notation, str):
+        notation = ""
+    notation = notation.replace("\0", "")[:_CARNATIC_NOTATION_MAX]
+    raga = value.get("raga")
+    if not isinstance(raga, str) or not _CARNATIC_RAGA_RE.fullmatch(raga.strip()):
+        raga = _CARNATIC_DEFAULT_RAGA
+    else:
+        raga = raga.strip()
+    bpm = _exact_int(value.get("bpm"))
+    if bpm is None or not (30 <= bpm <= 240):
+        bpm = _CARNATIC_DEFAULT_BPM
+    gati = _exact_int(value.get("gati"))
+    if gati not in _CARNATIC_GATI:
+        gati = _CARNATIC_DEFAULT_GATI
+    kala = _exact_int(value.get("kala"))
+    if kala not in _CARNATIC_KALA:
+        kala = _CARNATIC_DEFAULT_KALA
+    if (not notation.strip()
+            and raga == _CARNATIC_DEFAULT_RAGA
+            and bpm == _CARNATIC_DEFAULT_BPM
+            and gati == _CARNATIC_DEFAULT_GATI
+            and kala == _CARNATIC_DEFAULT_KALA):
+        return {}
+    return {
+        "notation": notation,
+        "raga": raga,
+        "bpm": bpm,
+        "gati": gati,
+        "kala": kala,
+    }
+
+
+def _parse_editor_carnatic(arr_dict):
+    """Per-arrangement request field: absent → leave disk alone; null/empty
+    defaults → remove the key; a dict → sanitized snapshot."""
+    if not isinstance(arr_dict, dict) or "editor_carnatic" not in arr_dict:
+        return _FIELD_ABSENT
+    value = arr_dict.get("editor_carnatic")
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        return _FIELD_ABSENT
+    return _coerce_editor_carnatic(value)
+
+
+def _apply_editor_carnatic(entry: dict, payload) -> None:
+    """Write/remove the per-arrangement `editor_carnatic` manifest key."""
+    if payload is _FIELD_ABSENT or not isinstance(entry, dict):
+        return
+    if payload:
+        entry["editor_carnatic"] = payload
+    else:
+        entry.pop("editor_carnatic", None)
 _STEM_ID_SUB_RE = re.compile(r"[^a-zA-Z0-9_-]")
 _STEM_AUDIO_EXTS = {".wav", ".ogg", ".opus", ".mp3", ".flac", ".m4a", ".aac"}
 
@@ -4673,6 +4748,7 @@ def setup(app, context):
             # every edit after the skip would map back to the WRONG file.
             arrangement_ids = []
             arrangement_types = []
+            arrangement_carnatic = []
             for entry in (loaded.manifest.get("arrangements", []) or []):
                 if not isinstance(entry, dict):
                     continue
@@ -4684,6 +4760,7 @@ def setup(app, context):
                     continue
                 arrangement_ids.append(entry.get("id", ""))
                 arrangement_types.append(entry.get("type", ""))
+                arrangement_carnatic.append(entry.get("editor_carnatic"))
 
             # Pick the audio for editor playback. A freshly-converted
             # sloppak has one `full` stem — use it directly. A stem-split
@@ -4951,6 +5028,13 @@ def setup(app, context):
                 atype = arrangement_types[i] if i < len(arrangement_types) else ""
                 if isinstance(atype, str) and atype.strip():
                     arr_data["type"] = atype.strip()
+                # Carnatic panel snapshot — same trap as `type`: a key that
+                # lives only on the manifest entry is invisible to the
+                # frontend unless copied onto arr_data here.
+                _carn = _coerce_editor_carnatic(
+                    arrangement_carnatic[i] if i < len(arrangement_carnatic) else None)
+                if _carn:
+                    arr_data["editor_carnatic"] = _carn
 
             # Round-trip load: populate the piano-roll from notation for any
             # notation-only arrangement (see _populate_notation_notes).
@@ -5398,6 +5482,11 @@ def setup(app, context):
                     if isinstance(_atype, str) and _atype.strip():
                         _rebuilt["type"] = _atype.strip()
                     _entry = _merge_manifest_entry(_old_by_id.get(aid), _rebuilt)
+                    # Full-snapshot rebuild is {id,name,file,tuning,capo,type};
+                    # `_merge_manifest_entry` keeps an *old* editor_carnatic,
+                    # but a *new* snapshot value must be copied onto the
+                    # entry or it is dropped. Null/defaults remove the key.
+                    _apply_editor_carnatic(_entry, _parse_editor_carnatic(ad))
                     # Carry any GP-import notation alongside the entry (NOT on
                     # it — keeping it off the manifest entry means it can never
                     # leak into manifest.yaml); the sidecar writer consumes it.
@@ -9303,6 +9392,7 @@ def setup(app, context):
                     "tuning": normalized_tuning,
                     "capo": int(ad.get("capo", 0)),
                 }
+                _apply_editor_carnatic(arr_entry, _parse_editor_carnatic(ad))
                 # Dual-write notation sidecar for keys-family arrangements here
                 # too, so Save-As-Sloppak / create charts get notation-renderer
                 # support without a reopen-and-save round trip (no-op otherwise).

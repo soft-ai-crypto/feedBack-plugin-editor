@@ -51,7 +51,7 @@ import {
     activateTrackAudioSource,
 } from './audio.js';
 import { _mixerClapState, _mixerPanelRefresh, _mixerPartStripState, editorToggleMixerPanel, initMixerPanel } from './mixer-panel.js';
-import { _carnaticPanelRefresh, initCarnaticPanel } from './carnatic-panel.js';
+import { _carnaticPanelRefresh, flushCarnaticPanel, initCarnaticPanel } from './carnatic-panel.js';
 import {
     _barSpanForTimes, _editorApplyScrollBounds,
     _editorClampScrollX, _loopReliftBeats,
@@ -1852,6 +1852,7 @@ window.editorSelectArrangement = (val) => {
     // move that cleared a mark since the last save isn't resurrected when we
     // restore this arrangement later). Guarded for extracted-test envs.
     if (typeof _saveSuggestedMarks === 'function') _saveSuggestedMarks();
+    flushCarnaticPanel();
     S.currentArr = parseInt(val) || 0;
     S.sel.clear();
     // Tone + anchor selections are per-arrangement — clear them so
@@ -2428,6 +2429,7 @@ function _editorMovePart(dir) {
     // append-last invariant and shift arr:<idx> mix keys onto the wrong parts).
     const to = _movePartTargetPure(from, dir, pitchedArrangementCount(S.arrangements));
     if (to < 0) return true;   // at an end / nothing to do
+    flushCarnaticPanel();
     const [moved] = S.arrangements.splice(from, 1);
     S.arrangements.splice(to, 0, moved);
     // The move renumbers arrangement indices, so history commands tagged

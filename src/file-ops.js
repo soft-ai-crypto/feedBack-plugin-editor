@@ -28,6 +28,7 @@ import { _resetSignpostCounters } from './signposts.js';
 import { surfaceMigrateFilename, surfaceOnSongLoaded } from './toolbars.js';
 import { _editorEscHtml, setStatus } from './ui.js';
 import { host } from './host.js';
+import { flushCarnaticPanel, sanitizeEditorCarnatic } from './carnatic-panel.js';
 
 // How many loads are in flight. The entry landing is armed by a timer on screen
 // entry and asks "is anything loaded?" only when it fires, so a load that is
@@ -608,8 +609,15 @@ export function _activeArrangementExceedsArchiveLimit() {
 // `forceFullSnapshot` is true for save_as_sloppak so the new sloppak
 // gets every arrangement (not just S.currentArr).
 // (Exported for tests — the drum_tab wire semantics are pinned there.)
+function _withCarnatic(rest) {
+    const cleaned = sanitizeEditorCarnatic(rest && rest.editor_carnatic);
+    if (cleaned) return { ...rest, editor_carnatic: cleaned };
+    return { ...rest, editor_carnatic: null };
+}
+
 export function _buildSaveBody(forceFullSnapshot) {
     if (_recState === 'recording') window.editorStopRecordMidi();
+    flushCarnaticPanel();
 
     // Persist suggested marks BEFORE reconstructChords mints fresh note objects
     // and drops them from the WeakSet, so a reload restores the honest-gap marks.
@@ -696,7 +704,7 @@ export function _buildSaveBody(forceFullSnapshot) {
             // wire format. `rest` still carries `handshapes` (remapped by the
             // reconstructChords pass above) for the sloppak round-trip.
             const { _anchorEditCount, _handshapeEditCount, ...rest } = a;
-            if (!rest.tones) return rest;
+            if (!rest.tones) return _withCarnatic(rest);
             // Distinguish loaded-but-unauthored data (ship verbatim,
             // round-trip through sloppak) from a synthesized-then-
             // fully-undone state (strip so the backend's preserve
@@ -711,9 +719,9 @@ export function _buildSaveBody(forceFullSnapshot) {
             const editCount = rest.tones._editCount;
             if (editCount === 0) {
                 const { tones, ...rest2 } = rest;
-                return rest2;
+                return _withCarnatic(rest2);
             }
-            return { ...rest, tones: _stripToneInternals(rest.tones) };
+            return _withCarnatic({ ...rest, tones: _stripToneInternals(rest.tones) });
         });
     } else if (_tonesAreDirty(arr)) {
         // Single-arrangement (archive) save — the backend reads
