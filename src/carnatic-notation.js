@@ -138,8 +138,19 @@ export function parseNotation(text, raga, strict) {
     return { ev, warn };
 }
 
-/** Auto string when no @ is given — same rules as the reference place(). */
+/** Auto string when no legal @ is given. */
 export function autoString(semi) {
+    const open = STR.indexOf(semi);
+    if (open >= 0) return open;
+    let best = null, bestFret = Infinity;
+    for (let s = 0; s < STR.length; s++) {
+        const fret = semi - STR[s];
+        if (fret >= 0 && fret <= WIN && fret < bestFret) {
+            bestFret = fret;
+            best = s;
+        }
+    }
+    if (best != null) return best;
     if (semi >= 0 && semi <= WIN) return 2;
     if (semi < 0) return semi >= -5 ? 1 : 0;
     return 4;
@@ -155,7 +166,14 @@ export function eventsToEditorNotes(ev, bpm, gati, kala) {
     let t = 0;
     for (const e of ev || []) {
         if (e.t === 'n') {
-            const string = e.str != null ? e.str : autoString(e.semi);
+            let string = e.str;
+            if (string == null) {
+                const prev = out.length ? out[out.length - 1] : null;
+                const linked = e.tech === 'h' || e.tech === 'p' || e.tech === 's' || e.tech === 'd';
+                const stay = linked && prev && (e.semi - STR[prev.string] >= 0)
+                    && (e.semi - STR[prev.string] <= WIN);
+                string = stay ? prev.string : autoString(e.semi);
+            }
             const fret = place(e.semi, string);
             const techniques = {};
             if (e.tech === 'h') techniques.hammer_on = true;
