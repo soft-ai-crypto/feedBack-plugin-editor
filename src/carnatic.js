@@ -368,18 +368,37 @@ export function buildRaga(v) {
 }
 
 // ── Tālas ───────────────────────────────────────────────────────────
-// Angas: L = laghu (aksharas as listed), D = dhrutam (2), A = anudhrutam (1).
-// The seven sūlādi tālas plus Adi, mostly chatusra jati as in the reference.
-export const TALAS = [
-    { n: 'Adi (chatusra triputa), 8 beats', a: [['L', 4], ['D', 2], ['D', 2]] },
-    { n: 'Dhruva, 14 beats', a: [['L', 4], ['D', 2], ['L', 4], ['L', 4]] },
-    { n: 'Matya, 10 beats', a: [['L', 4], ['D', 2], ['L', 4]] },
-    { n: 'Rupaka, 6 beats', a: [['D', 2], ['L', 4]] },
-    { n: 'Jhampa, 10 beats', a: [['L', 7], ['A', 1], ['D', 2]] },
-    { n: 'Triputa, 7 beats (tisra)', a: [['L', 3], ['D', 2], ['D', 2]] },
-    { n: 'Ata, 14 beats', a: [['L', 5], ['D', 2], ['L', 5], ['D', 2]] },
-    { n: 'Eka, 4 beats', a: [['L', 4]] },
+// Angas: L = laghu (jati aksharas), D = dhrutam (2), A = anudhrutam (1).
+// The seven sūlādi tālas plus Adi (chatusra Triputa, jati locked).
+export const JATIS = [
+    { n: 'tisra', beats: 3 },
+    { n: 'chatusra', beats: 4 },
+    { n: 'khanda', beats: 5 },
+    { n: 'misra', beats: 7 },
+    { n: 'sankirna', beats: 9 },
 ];
+
+export const TALAS = [
+    { n: 'Dhruva', a: ['L', 'D', 'L', 'L'] },
+    { n: 'Matya', a: ['L', 'D', 'L'] },
+    { n: 'Rupaka', a: ['D', 'L'] },
+    { n: 'Jhampa', a: ['L', 'A', 'D'] },
+    { n: 'Triputa', a: ['L', 'D', 'D'] },
+    { n: 'Ata', a: ['L', 'L', 'D', 'D'] },
+    { n: 'Eka', a: ['L'] },
+    { n: 'Adi', a: ['L', 'D', 'D'], jati: 4 },
+];
+
+/** Beat grouping for `tala` at `jati` (laghu length). Locked talas ignore jati. */
+export function talaGrouping(tala, jati) {
+    const laghu = tala.jati ?? (typeof jati === 'number' ? jati : jati.beats);
+    return tala.a.map((anga) => (anga === 'L' ? laghu : anga === 'D' ? 2 : 1));
+}
+
+/** Total aksharas for `tala` at `jati`. */
+export function talaBeats(tala, jati) {
+    return talaGrouping(tala, jati).reduce((sum, n) => sum + n, 0);
+}
 
 /** Seconds per beat unit: (60 / bpm) × (4 / gati) / kala. */
 export function unitSec(bpm, gati, kala) {
