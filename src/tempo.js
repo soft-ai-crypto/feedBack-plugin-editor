@@ -1800,6 +1800,18 @@ function _tempoRenumberMeasures(beats) {
     return oldToNew;
 }
 
+// Same times; first beat is a barline, every Nth beat after it is a barline,
+// all other beats are plain (measure -1); then renumber measures.
+export function _tempoRebarEveryNPure(beats, n) {
+    if (!Array.isArray(beats) || !beats.length) return null;
+    const N = Math.round(Number(n));
+    if (!Number.isInteger(N) || N < 1) return null;
+    const out = beats.map((b) => ({ ...b, measure: -1 }));
+    for (let i = 0; i < out.length; i += N) out[i].measure = 1;
+    _tempoRenumberMeasures(out);
+    return out;
+}
+
 // After a renumber, drop any authored meter GROUPING that no longer sums to
 // the bar numerator it now spans in the NEW grid. Inserting or deleting a
 // barline splits or merges a bar UNDER a grouping mark: a 2+2 mark stranded

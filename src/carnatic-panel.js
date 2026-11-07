@@ -11,7 +11,8 @@ import { _isCarnaticMandolinArr } from './instrument.js';
 import { notes } from './notes.js';
 import { S } from './state.js';
 import { getTabBPM } from './sync-tempo.js';
-import { MIN_MEASURE, TempoGridCmd, _tempoAppendBarlinePure } from './tempo.js';
+import { _marksSanitizePure } from './tempo-marks.js';
+import { MIN_MEASURE, TempoGridCmd, _tempoAppendBarlinePure, _tempoRebarEveryNPure, _tempoRemapMarksByTime } from './tempo.js';
 import { _editorEscHtml, setStatus } from './ui.js';
 
 class CompositeCmd {
@@ -181,6 +182,84 @@ function _carnaticExtendGridTo(beats, endTime) {
     return working === beats ? null : working;
 }
 
+function _r6(t) { return Math.round(t * 1000000) / 1000000; }
+
+/** Close or fill the last bar so it is a whole bar of `n` beats (times of existing beats stay). */
+function _carnaticEnsureWholeLastBar(beats, n, bpm) {
+    if (!Array.isArray(beats) || beats.length < 1 || !(n >= 1)) return beats;
+    const db = [];
+    for (let i = 0; i < beats.length; i++) {
+        if (beats[i] && beats[i].measure > 0) db.push(i);
+    }
+    if (!db.length) return beats;
+    const lastDb = db[db.length - 1];
+    if (lastDb === beats.length - 1 && db.length >= 2) {
+        const prev = db[db.length - 2];
+        const have = lastDb - prev;
+        if (have === n) return beats;
+        if (have > n) return beats;
+        const t0 = Number(beats[prev].time);
+        const t1 = Number(beats[lastDb].time);
+        if (!Number.isFinite(t0) || !Number.isFinite(t1) || !(t1 > t0)) return beats;
+        const mid = beats.slice(prev + 1, lastDb).map((b) => ({ ...b }));
+        for (let k = 1; k < n; k++) {
+            const t = _r6(t0 + (t1 - t0) * k / n);
+            if (mid.some((b) => Math.abs(b.time - t) < MIN_MEASURE)) continue;
+            if (Math.abs(t - t0) < MIN_MEASURE || Math.abs(t - t1) < MIN_MEASURE) continue;
+            mid.push({ time: t, measure: -1 });
+        }
+        mid.sort((a, b) => a.time - b.time);
+        const filled = beats.slice(0, prev + 1).map((b) => ({ ...b }))
+            .concat(mid, beats.slice(lastDb).map((b) => ({ ...b })));
+        return _tempoRebarEveryNPure(filled, n) || filled;
+    }
+    const have = beats.length - lastDb;
+    if (have > n) return beats;
+    let barDur;
+    if (db.length >= 2) {
+        barDur = Number(beats[lastDb].time) - Number(beats[db[db.length - 2]].time);
+    } else if (beats.length >= 2) {
+        barDur = (Number(beats[beats.length - 1].time) - Number(beats[0].time)) / (beats.length - 1) * n;
+    } else {
+        const b = Number(bpm);
+        barDur = n * 60 / (Number.isFinite(b) && b > 0 ? b : 90);
+    }
+    if (!Number.isFinite(barDur) || !(barDur > 0)) return beats;
+    let tClose = Number(beats[lastDb].time) + barDur;
+    const lastT = Number(beats[beats.length - 1].time);
+    const missing = n - have;
+    if (!(tClose > lastT + MIN_MEASURE)) {
+        const beatDur = barDur / n;
+        tClose = lastT + (missing + 1) * Math.max(beatDur, MIN_MEASURE);
+    }
+    const out = beats.map((b) => ({ ...b }));
+    for (let k = 1; k <= missing; k++) {
+        out.push({ time: _r6(lastT + (tClose - lastT) * k / (missing + 1)), measure: -1 });
+    }
+    const lastDen = beats[lastDb] && beats[lastDb].den;
+    out.push({ time: _r6(tClose), measure: 1, den: lastDen !== undefined ? lastDen : 4 });
+    return _tempoRebarEveryNPure(out, n) || out;
+}
+
+function _carnaticTalaMeterMarks(newBeats, n, grouping) {
+    if (!Array.isArray(newBeats) || !(n >= 1)) return [];
+    const db = [];
+    for (let i = 0; i < newBeats.length; i++) {
+        if (newBeats[i] && newBeats[i].measure > 0) db.push(i);
+    }
+    const raw = [];
+    for (let k = 0; k + 1 < db.length; k++) {
+        raw.push({
+            measure: newBeats[db[k]].measure,
+            kind: 'meter',
+            num: n,
+            den: 4,
+            grouping,
+        });
+    }
+    return _marksSanitizePure(raw);
+}
+
 /** Sanitized panel snapshot, or null when everything is at the empty default. */
 export function sanitizeEditorCarnatic(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -302,6 +381,9 @@ function editorApplyCarnaticNotation() {
     const bpm = Math.max(1, getTabBPM() || 90);
     const gati = Math.max(1, Number((document.getElementById('editor-carnatic-gati') || {}).value) || 4);
     const kala = Math.max(1, Number((document.getElementById('editor-carnatic-kala') || {}).value) || 1);
+    const talaName = (document.getElementById('editor-carnatic-tala') || {}).value;
+    const tala = TALAS.find((t) => t.n === talaName) || TALAS.find((t) => t.n === 'Adi');
+    const jati = Number((document.getElementById('editor-carnatic-jati') || {}).value) || 4;
     const text = (document.getElementById('editor-carnatic-notation') || {}).value || '';
     const { ev, warn } = parseNotation(text, raga, false);
     const beats = S.beats || [];
@@ -319,8 +401,21 @@ function editorApplyCarnaticNotation() {
     const cmds = [];
     if (nn.length) cmds.push(new DeleteNotesCmd(nn.map((_, i) => i)));
     for (const n of next) cmds.push(new AddNoteCmd(n));
-    const newBeats = _carnaticExtendGridTo(beats, endTime);
-    if (newBeats) cmds.push(new TempoGridCmd(beats, newBeats, 'carnatic-grid'));
+    const N = tala ? talaBeats(tala, jati) : 0;
+    const grouping = tala ? talaGrouping(tala, jati) : null;
+    let newBeats = N >= 1 ? _tempoRebarEveryNPure(beats, N) : null;
+    if (newBeats) {
+        newBeats = _carnaticEnsureWholeLastBar(newBeats, N, bpm) || newBeats;
+        const extended = _carnaticExtendGridTo(newBeats, endTime);
+        if (extended) newBeats = _carnaticEnsureWholeLastBar(extended, N, bpm) || extended;
+        const gridCmd = new TempoGridCmd(beats, newBeats, 'carnatic-grid');
+        const remap = _tempoRemapMarksByTime(beats, newBeats);
+        const kept = (remap ? remap.after : (S.tempoMarks || [])).filter((m) => m.kind !== 'meter');
+        const meters = _carnaticTalaMeterMarks(newBeats, N, grouping);
+        const after = kept.concat(meters).sort((a, b) => (a.measure - b.measure) || (a.kind < b.kind ? -1 : 1));
+        gridCmd.marks = { before: S.tempoMarks || [], after };
+        cmds.push(gridCmd);
+    }
     if (cmds.length) S.history.exec(new CompositeCmd(cmds));
     showWarnings(warn);
     host.draw();
