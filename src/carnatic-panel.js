@@ -3,7 +3,7 @@
  * the ordinary DeleteNotesCmd + AddNoteCmd history path.
  */
 
-import { buildRaga, janyaOptions, melakartaOptions, ragaKey } from './carnatic.js';
+import { buildRaga, JATIS, TALAS, janyaOptions, melakartaOptions, ragaKey, talaBeats, talaGrouping } from './carnatic.js';
 import { eventsToEditorNotes, parseNotation } from './carnatic-notation.js';
 import { AddNoteCmd, DeleteNotesCmd } from './commands.js';
 import { host } from './host.js';
@@ -93,6 +93,47 @@ function fillRagas() {
     _bindRagaTypeahead(sel);
 }
 
+function fillTalas() {
+    const sel = document.getElementById('editor-carnatic-tala');
+    if (!sel) return;
+    const adi = TALAS.find((t) => t.n === 'Adi');
+    const rest = TALAS.filter((t) => t.n !== 'Adi');
+    const ordered = adi ? [adi, ...rest] : TALAS;
+    sel.innerHTML = ordered.map((t) =>
+        `<option value="${_editorEscHtml(t.n)}">${_editorEscHtml(t.n)}</option>`).join('');
+    sel.value = 'Adi';
+}
+
+function fillJatis() {
+    const sel = document.getElementById('editor-carnatic-jati');
+    if (!sel) return;
+    sel.innerHTML = JATIS.map((j) => {
+        const label = `${j.n.charAt(0).toUpperCase()}${j.n.slice(1)} (${j.beats})`;
+        return `<option value="${j.beats}">${_editorEscHtml(label)}</option>`;
+    }).join('');
+    sel.value = '4';
+}
+
+function _syncAdiJatiLock() {
+    const talaEl = document.getElementById('editor-carnatic-tala');
+    const jatiEl = document.getElementById('editor-carnatic-jati');
+    if (!talaEl || !jatiEl) return;
+    const locked = talaEl.value === 'Adi';
+    if (locked) jatiEl.value = '4';
+    jatiEl.disabled = locked;
+}
+
+function _updateTalaSummary() {
+    const line = document.getElementById('editor-carnatic-tala-summary');
+    if (!line) return;
+    const talaName = (document.getElementById('editor-carnatic-tala') || {}).value;
+    const tala = TALAS.find((t) => t.n === talaName) || TALAS.find((t) => t.n === 'Adi');
+    const jati = Number((document.getElementById('editor-carnatic-jati') || {}).value) || 4;
+    if (!tala) return;
+    const grouping = talaGrouping(tala, jati);
+    line.textContent = `${talaBeats(tala, jati)} beats: ${grouping.join('+')}`;
+}
+
 function showWarnings(list) {
     const ul = document.getElementById('editor-carnatic-warnings');
     if (!ul) return;
@@ -103,8 +144,12 @@ const CARNATIC_DEFAULT_RAGA = 'm:1';
 const CARNATIC_DEFAULT_BPM = 90;
 const CARNATIC_DEFAULT_GATI = 4;
 const CARNATIC_DEFAULT_KALA = 1;
+const CARNATIC_DEFAULT_TALA = 'Adi';
+const CARNATIC_DEFAULT_JATI = 4;
 const CARNATIC_GATI = new Set([3, 4, 5, 7, 9]);
 const CARNATIC_KALA = new Set([1, 2, 4]);
+const CARNATIC_TALA_NAMES = new Set(TALAS.map((t) => t.n));
+const CARNATIC_JATI = new Set(JATIS.map((j) => j.beats));
 const CARNATIC_NOTATION_MAX = 100000;
 const CARNATIC_RAGA_RE = /^[mj]:\d{1,6}$/;
 const CARNATIC_GRID_MAX_BARS = 200;
@@ -152,14 +197,24 @@ export function sanitizeEditorCarnatic(raw) {
     if (!CARNATIC_GATI.has(gati)) gati = CARNATIC_DEFAULT_GATI;
     let kala = Number(raw.kala);
     if (!CARNATIC_KALA.has(kala)) kala = CARNATIC_DEFAULT_KALA;
+    let tala = typeof raw.tala === 'string' ? raw.tala.trim() : '';
+    if (!CARNATIC_TALA_NAMES.has(tala)) tala = CARNATIC_DEFAULT_TALA;
+    let jati = Number(raw.jati);
+    if (!CARNATIC_JATI.has(jati)) jati = CARNATIC_DEFAULT_JATI;
+    if (tala === CARNATIC_DEFAULT_TALA) jati = CARNATIC_DEFAULT_JATI;
     if (!notation.trim()
             && raga === CARNATIC_DEFAULT_RAGA
             && bpm === CARNATIC_DEFAULT_BPM
             && gati === CARNATIC_DEFAULT_GATI
-            && kala === CARNATIC_DEFAULT_KALA) {
+            && kala === CARNATIC_DEFAULT_KALA
+            && tala === CARNATIC_DEFAULT_TALA
+            && jati === CARNATIC_DEFAULT_JATI) {
         return null;
     }
-    return { notation, raga, bpm, gati, kala };
+    const out = { notation, raga, bpm, gati, kala };
+    if (tala !== CARNATIC_DEFAULT_TALA) out.tala = tala;
+    if (jati !== CARNATIC_DEFAULT_JATI) out.jati = jati;
+    return out;
 }
 
 function _panelSnapshot() {
@@ -168,6 +223,8 @@ function _panelSnapshot() {
         bpm: (document.getElementById('editor-carnatic-bpm') || {}).value,
         gati: (document.getElementById('editor-carnatic-gati') || {}).value,
         kala: (document.getElementById('editor-carnatic-kala') || {}).value,
+        tala: (document.getElementById('editor-carnatic-tala') || {}).value,
+        jati: (document.getElementById('editor-carnatic-jati') || {}).value,
         notation: (document.getElementById('editor-carnatic-notation') || {}).value,
     });
 }
@@ -175,7 +232,7 @@ function _panelSnapshot() {
 let _filling = false;
 let _bpmDisplayWrapped = false;
 
-/** Write the five controls onto the current arrangement (or drop the key). */
+/** Write the panel controls onto the current arrangement (or drop the key). */
 export function flushCarnaticPanel() {
     if (_filling) return;
     const arr = S.arrangements && S.arrangements[S.currentArr];
@@ -212,12 +269,21 @@ function fillCarnaticPanel(arr) {
             if (ragaEl.value !== data.raga) ragaEl.value = CARNATIC_DEFAULT_RAGA;
         }
         fillCarnaticBpmFromSong();
+        const talaEl = document.getElementById('editor-carnatic-tala');
+        if (talaEl) {
+            talaEl.value = data.tala || CARNATIC_DEFAULT_TALA;
+            if (talaEl.value !== (data.tala || CARNATIC_DEFAULT_TALA)) talaEl.value = CARNATIC_DEFAULT_TALA;
+        }
+        const jatiEl = document.getElementById('editor-carnatic-jati');
+        if (jatiEl) jatiEl.value = String(data.jati ?? CARNATIC_DEFAULT_JATI);
         const gatiEl = document.getElementById('editor-carnatic-gati');
         if (gatiEl) gatiEl.value = String(data.gati);
         const kalaEl = document.getElementById('editor-carnatic-kala');
         if (kalaEl) kalaEl.value = String(data.kala);
         const textEl = document.getElementById('editor-carnatic-notation');
         if (textEl) textEl.value = data.notation;
+        _syncAdiJatiLock();
+        _updateTalaSummary();
     } finally {
         _filling = false;
     }
@@ -286,6 +352,8 @@ function _bindPanelPersist() {
         'editor-carnatic-bpm',
         'editor-carnatic-gati',
         'editor-carnatic-kala',
+        'editor-carnatic-tala',
+        'editor-carnatic-jati',
         'editor-carnatic-notation',
     ];
     for (const id of ids) {
@@ -295,10 +363,27 @@ function _bindPanelPersist() {
         el.addEventListener('input', flushCarnaticPanel);
         el.addEventListener('change', flushCarnaticPanel);
     }
+    const talaEl = document.getElementById('editor-carnatic-tala');
+    if (talaEl && !talaEl.dataset.carnaticTalaUi) {
+        talaEl.dataset.carnaticTalaUi = '1';
+        talaEl.addEventListener('change', () => {
+            _syncAdiJatiLock();
+            _updateTalaSummary();
+        });
+    }
+    const jatiEl = document.getElementById('editor-carnatic-jati');
+    if (jatiEl && !jatiEl.dataset.carnaticJatiUi) {
+        jatiEl.dataset.carnaticJatiUi = '1';
+        jatiEl.addEventListener('change', _updateTalaSummary);
+    }
 }
 
 export function initCarnaticPanel() {
     fillRagas();
+    fillTalas();
+    fillJatis();
+    _syncAdiJatiLock();
+    _updateTalaSummary();
     const btn = document.getElementById('editor-carnatic-apply');
     if (btn) btn.addEventListener('click', editorApplyCarnaticNotation);
     _bindPanelPersist();

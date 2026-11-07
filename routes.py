@@ -636,12 +636,16 @@ def _apply_tempo_marks(manifest: dict, marks) -> None:
 
 _CARNATIC_GATI = {3, 4, 5, 7, 9}
 _CARNATIC_KALA = {1, 2, 4}
+_CARNATIC_TALAS = {"Adi", "Dhruva", "Matya", "Rupaka", "Jhampa", "Triputa", "Ata", "Eka"}
+_CARNATIC_JATI = {3, 4, 5, 7, 9}
 _CARNATIC_RAGA_RE = re.compile(r"^[mj]:\d{1,6}$")
 _CARNATIC_NOTATION_MAX = 100000
 _CARNATIC_DEFAULT_RAGA = "m:1"
 _CARNATIC_DEFAULT_BPM = 90
 _CARNATIC_DEFAULT_GATI = 4
 _CARNATIC_DEFAULT_KALA = 1
+_CARNATIC_DEFAULT_TALA = "Adi"
+_CARNATIC_DEFAULT_JATI = 4
 
 
 def _coerce_editor_carnatic(value):
@@ -671,19 +675,36 @@ def _coerce_editor_carnatic(value):
     kala = _exact_int(value.get("kala"))
     if kala not in _CARNATIC_KALA:
         kala = _CARNATIC_DEFAULT_KALA
+    tala = value.get("tala")
+    if not isinstance(tala, str) or tala.strip() not in _CARNATIC_TALAS:
+        tala = _CARNATIC_DEFAULT_TALA
+    else:
+        tala = tala.strip()
+    jati = _exact_int(value.get("jati"))
+    if jati not in _CARNATIC_JATI:
+        jati = _CARNATIC_DEFAULT_JATI
+    if tala == _CARNATIC_DEFAULT_TALA:
+        jati = _CARNATIC_DEFAULT_JATI
     if (not notation.strip()
             and raga == _CARNATIC_DEFAULT_RAGA
             and bpm == _CARNATIC_DEFAULT_BPM
             and gati == _CARNATIC_DEFAULT_GATI
-            and kala == _CARNATIC_DEFAULT_KALA):
+            and kala == _CARNATIC_DEFAULT_KALA
+            and tala == _CARNATIC_DEFAULT_TALA
+            and jati == _CARNATIC_DEFAULT_JATI):
         return {}
-    return {
+    out = {
         "notation": notation,
         "raga": raga,
         "bpm": bpm,
         "gati": gati,
         "kala": kala,
     }
+    if tala != _CARNATIC_DEFAULT_TALA:
+        out["tala"] = tala
+    if jati != _CARNATIC_DEFAULT_JATI:
+        out["jati"] = jati
+    return out
 
 
 def _parse_editor_carnatic(arr_dict):
