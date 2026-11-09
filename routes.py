@@ -646,6 +646,10 @@ _CARNATIC_DEFAULT_GATI = 4
 _CARNATIC_DEFAULT_KALA = 1
 _CARNATIC_DEFAULT_TALA = "Adi"
 _CARNATIC_DEFAULT_JATI = 4
+_CARNATIC_GAMAKA_CODES = {
+    "kam", "jar", "sph", "nok", "ori", "pra", "and", "mur", "rav", "kha",
+}
+_CARNATIC_GAMAKA_MAX = 2000
 
 
 def _coerce_editor_carnatic(value):
@@ -685,6 +689,7 @@ def _coerce_editor_carnatic(value):
         jati = _CARNATIC_DEFAULT_JATI
     if tala == _CARNATIC_DEFAULT_TALA:
         jati = _CARNATIC_DEFAULT_JATI
+    gamakas = _coerce_editor_gamakas(value.get("gamakas"))
     if (not notation.strip()
             and raga == _CARNATIC_DEFAULT_RAGA
             and bpm == _CARNATIC_DEFAULT_BPM
@@ -692,7 +697,7 @@ def _coerce_editor_carnatic(value):
             and kala == _CARNATIC_DEFAULT_KALA
             and tala == _CARNATIC_DEFAULT_TALA
             and jati == _CARNATIC_DEFAULT_JATI):
-        return {}
+        return {"gamakas": gamakas} if gamakas else {}
     out = {
         "notation": notation,
         "raga": raga,
@@ -704,6 +709,31 @@ def _coerce_editor_carnatic(value):
         out["tala"] = tala
     if jati != _CARNATIC_DEFAULT_JATI:
         out["jati"] = jati
+    if gamakas:
+        out["gamakas"] = gamakas
+    return out
+
+
+def _coerce_editor_gamakas(value):
+    """Keep only known gamaka labels: `{t, s, g}` with s in 0–4, max 2000."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        g = item.get("g")
+        if not isinstance(g, str) or g not in _CARNATIC_GAMAKA_CODES:
+            continue
+        s = _exact_int(item.get("s"))
+        if s is None or not (0 <= s <= 4):
+            continue
+        t = item.get("t")
+        if isinstance(t, bool) or not isinstance(t, (int, float)) or not math.isfinite(t):
+            continue
+        out.append({"t": round(float(t), 3), "s": s, "g": g})
+        if len(out) >= _CARNATIC_GAMAKA_MAX:
+            break
     return out
 
 

@@ -794,6 +794,15 @@ function _drawNote(n, selected, ghl, linted, nextMap) {
             ctx.stroke();
         }
     }
+    // Editor-only gamaka label: short code just above the note (and above
+    // the vibrato squiggle when that overlay is present).
+    if (typeof techs.gamaka === 'string' && techs.gamaka) {
+        ctx.fillStyle = '#ffffffbb';
+        ctx.font = '7px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(techs.gamaka, x + Math.min(sw, MIN_NOTE_W) / 2, techs.vibrato ? y - 6 : y - 1);
+    }
     // Tie (link_next): a legato arc from this note's tail to the LINKED
     // note's head — the two notes visibly belong to one gesture. With no
     // next note on the string (or an overlap), the old trailing hook stays.

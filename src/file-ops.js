@@ -28,6 +28,7 @@ import { _resetSignpostCounters } from './signposts.js';
 import { surfaceMigrateFilename, surfaceOnSongLoaded } from './toolbars.js';
 import { _editorEscHtml, setStatus } from './ui.js';
 import { host } from './host.js';
+import { GAMAKAS } from './carnatic.js';
 import { flushCarnaticPanel, sanitizeEditorCarnatic } from './carnatic-panel.js';
 
 // How many loads are in flight. The entry landing is armed by a timer on screen
@@ -205,6 +206,7 @@ export async function loadCDLC(filename, options = {}) {
         // editor kept them verbatim before but never normalized them.
         for (const a of S.arrangements) {
             if (!a) continue;
+            _restoreGamakas(a);
             a.handshapes = (a.handshapes || []).map(_normalizeHandshape)
                 // Drop degenerate zero-/negative-length spans: they convey no
                 // region and would render/hit-test as a 2px sliver. Authoring
@@ -609,8 +611,55 @@ export function _activeArrangementExceedsArchiveLimit() {
 // `forceFullSnapshot` is true for save_as_sloppak so the new sloppak
 // gets every arrangement (not just S.currentArr).
 // (Exported for tests — the drum_tab wire semantics are pinned there.)
+const GAMAKA_CODES = new Set(GAMAKAS.map((g) => g.code));
+
+function _roundTime3(t) {
+    return Math.round(Number(t) * 1000) / 1000;
+}
+
+function _visitArrNotes(arr, fn) {
+    for (const n of (arr && arr.notes) || []) fn(n);
+    for (const ch of (arr && arr.chords) || []) {
+        for (const cn of (ch && ch.notes) || []) fn(cn);
+    }
+}
+
+function _collectGamakas(arr) {
+    const out = [];
+    _visitArrNotes(arr, (n) => {
+        const g = n && n.techniques && n.techniques.gamaka;
+        if (typeof g !== 'string' || !GAMAKA_CODES.has(g)) return;
+        const t = Number(n.time);
+        const s = Number(n.string);
+        if (!Number.isFinite(t) || !Number.isInteger(s) || s < 0 || s > 4) return;
+        out.push({ t: _roundTime3(t), s, g });
+    });
+    return out.slice(0, 2000);
+}
+
+function _restoreGamakas(arr) {
+    const cleaned = sanitizeEditorCarnatic(arr && arr.editor_carnatic);
+    const list = cleaned && cleaned.gamakas;
+    if (!list || !list.length) return;
+    const byKey = new Map();
+    for (const e of list) byKey.set(`${e.t}\0${e.s}`, e.g);
+    _visitArrNotes(arr, (n) => {
+        if (!n) return;
+        const t = Number(n.time);
+        const s = Number(n.string);
+        if (!Number.isFinite(t) || !Number.isInteger(s)) return;
+        const g = byKey.get(`${_roundTime3(t)}\0${s}`);
+        if (!g) return;
+        if (!n.techniques) n.techniques = {};
+        n.techniques.gamaka = g;
+    });
+}
+
 function _withCarnatic(rest) {
-    const cleaned = sanitizeEditorCarnatic(rest && rest.editor_carnatic);
+    const cleaned = sanitizeEditorCarnatic({
+        ...(rest && rest.editor_carnatic),
+        gamakas: _collectGamakas(rest),
+    });
     if (cleaned) return { ...rest, editor_carnatic: cleaned };
     return { ...rest, editor_carnatic: null };
 }

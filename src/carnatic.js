@@ -413,6 +413,20 @@ export const OPEN_NOTES = ['C#3', 'G#3', 'C#4', 'G#4', 'C#5'];
 export const SA_STRING = 2; // open third string = middle Sa (C#4)
 export const FRET_MAX = 15;
 
+// Editor-only gamaka labels (notation `{code}` after a swara). Not played.
+export const GAMAKAS = [
+    { code: 'kam', name: 'Kampita' },
+    { code: 'jar', name: 'Jaru' },
+    { code: 'sph', name: 'Sphurita' },
+    { code: 'nok', name: 'Nokku' },
+    { code: 'ori', name: 'Orikai' },
+    { code: 'pra', name: 'Pratyahata' },
+    { code: 'and', name: 'Andolita' },
+    { code: 'mur', name: 'Murki' },
+    { code: 'rav', name: 'Ravai' },
+    { code: 'kha', name: 'Khandippu' },
+];
+
 /**
  * Fret for `semi` (0 = middle Sa) on `string` (0 = lowest).
  * Clamped to 0–15. Returns null if the string index is out of range.

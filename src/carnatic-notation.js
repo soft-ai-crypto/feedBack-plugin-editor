@@ -4,8 +4,10 @@
  */
 
 import {
-    SW, STR, SEMI_LABEL, mod12, place, unitSec,
+    SW, STR, SEMI_LABEL, GAMAKAS, mod12, place, unitSec,
 } from './carnatic.js';
+
+const GAMAKA_CODES = new Set(GAMAKAS.map((g) => g.code));
 
 const mod = mod12;
 // Playable-fret window used by the reference parser for auto-string
@@ -40,9 +42,15 @@ function maskLyrics(t) {
 export function parseNotation(text, raga, strict) {
     const ev = [], warn = [], dflt = null;
     let beat = 0, last = null, prev = null, dir = 1, pt = null, fs = dflt, kk = 0;
+    const held = [];
     text = maskLyrics(text.normalize('NFD'))
+        .replace(/\{[A-Za-z]+\}/g, (m) => {
+            held.push(m);
+            return `\u0001${held.length - 1}\u0001`;
+        })
         .replace(/(?<=[SRGMPDNsrgmpdn0-9.'^\u0323\u0307])p(?=[SRGMPDNsrgmpdn])/g, '%')
-        .replace(/h/g, '&');
+        .replace(/h/g, '&')
+        .replace(/\u0001(\d+)\u0001/g, (_, i) => held[+i]);
     const tokens = [...text.matchAll(/\|+|[^\s|]+/g)];
     for (const tm of tokens) {
         const tok = tm[0];
@@ -54,7 +62,7 @@ export function parseNotation(text, raga, strict) {
             continue;
         }
         const sl = [];
-        const re = /([SRGMPDNsrgmpdn])([123])?([.'^\u0323\u0307]*)(@[1-5])?|(,)|(;)|(-)|(&|%|\/|\\|~|\*)|@([0-5])|(\S)/g;
+        const re = /([SRGMPDNsrgmpdn])([123])?([.'^\u0323\u0307]*)(\{[A-Za-z]+\})?(@[1-5])?|(,)|(;)|(-)|(&|%|\/|\\|~|\*)|@([0-5])|(\S)/g;
         let m;
         while ((m = re.exec(tok))) {
             if (m[1]) {
@@ -62,6 +70,12 @@ export function parseNotation(text, raga, strict) {
                 const semi = m[2] && L !== 'S' && L !== 'P' ? SW[L + m[2]] : raga.m[L];
                 const lab = m[2] && L !== 'S' && L !== 'P' ? L + m[2] : L;
                 const oct = (m[1] !== L ? -1 : 0) + [...m[3]].reduce((a, c) => a + (c === '.' || c === '\u0323' ? -1 : 1), 0);
+                let gamaka = null;
+                if (m[4]) {
+                    const code = m[4].slice(1, -1);
+                    if (GAMAKA_CODES.has(code)) gamaka = code;
+                    else warn.push(`Beat ${beat + 1}: unknown gamaka “${code}”`);
+                }
                 sl.push({
                     k: 'n',
                     semi: semi + 12 * oct,
@@ -69,16 +83,17 @@ export function parseNotation(text, raga, strict) {
                     w: 1,
                     pos: tm.index + m.index,
                     len: m[0].length,
-                    fs: m[4] ? +m[4][1] - 1 : fs,
+                    fs: m[5] ? +m[5][1] - 1 : fs,
                     tech: pt,
+                    gamaka,
                 });
                 pt = null;
-            } else if (m[5]) sl.push({ k: 'c', w: 1 });
-            else if (m[6]) sl.push({ k: 'c', w: 2 });
-            else if (m[7]) sl.push({ k: 'r', w: 1 });
-            else if (m[8]) pt = { '&': 'h', '%': 'p', '/': 's', '\\': 'd', '~': 'o', '*': 'g' }[m[8]];
-            else if (m[9] !== undefined) fs = m[9] === '0' ? dflt : +m[9] - 1;
-            else warn.push(`Beat ${beat + 1}: unknown symbol “${m[10]}”`);
+            } else if (m[6]) sl.push({ k: 'c', w: 1 });
+            else if (m[7]) sl.push({ k: 'c', w: 2 });
+            else if (m[8]) sl.push({ k: 'r', w: 1 });
+            else if (m[9]) pt = { '&': 'h', '%': 'p', '/': 's', '\\': 'd', '~': 'o', '*': 'g' }[m[9]];
+            else if (m[10] !== undefined) fs = m[10] === '0' ? dflt : +m[10] - 1;
+            else warn.push(`Beat ${beat + 1}: unknown symbol “${m[11]}”`);
         }
         const tot = sl.reduce((a, s) => a + s.w, 0) || 1;
         let cur = null;
@@ -131,6 +146,7 @@ export function parseNotation(text, raga, strict) {
             ev.push(cur = last = {
                 t: 'n', semi: s.semi, lab: s.lab, u, beat: beat + 1,
                 k: kk++, pos: s.pos, len: s.len, tech: s.tech, str: sf,
+                gamaka: s.gamaka,
             });
         }
         beat++;
@@ -184,6 +200,7 @@ export function eventsToEditorNotes(ev, bpm, gati, kala) {
                 if (!prev.techniques) prev.techniques = {};
                 prev.techniques.slide_to = fret;
             }
+            if (e.gamaka) techniques.gamaka = e.gamaka;
             out.push({
                 time: t,
                 string,

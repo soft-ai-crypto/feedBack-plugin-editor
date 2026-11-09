@@ -3,7 +3,7 @@
  * the ordinary DeleteNotesCmd + AddNoteCmd history path.
  */
 
-import { buildRaga, JATIS, TALAS, janyaOptions, melakartaOptions, ragaKey, talaBeats, talaGrouping } from './carnatic.js';
+import { buildRaga, GAMAKAS, JATIS, TALAS, janyaOptions, melakartaOptions, ragaKey, talaBeats, talaGrouping } from './carnatic.js';
 import { eventsToEditorNotes, parseNotation } from './carnatic-notation.js';
 import { AddNoteCmd, DeleteNotesCmd } from './commands.js';
 import { host } from './host.js';
@@ -260,6 +260,26 @@ function _carnaticTalaMeterMarks(newBeats, n, grouping) {
     return _marksSanitizePure(raw);
 }
 
+const CARNATIC_GAMAKA_CODES = new Set(GAMAKAS.map((g) => g.code));
+const CARNATIC_GAMAKA_MAX = 2000;
+
+function _sanitizeGamakas(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const g = item.g;
+        if (typeof g !== 'string' || !CARNATIC_GAMAKA_CODES.has(g)) continue;
+        const s = item.s;
+        if (typeof s !== 'number' || !Number.isInteger(s) || s < 0 || s > 4) continue;
+        const t = item.t;
+        if (typeof t !== 'number' || !Number.isFinite(t)) continue;
+        out.push({ t: Math.round(t * 1000) / 1000, s, g });
+        if (out.length >= CARNATIC_GAMAKA_MAX) break;
+    }
+    return out;
+}
+
 /** Sanitized panel snapshot, or null when everything is at the empty default. */
 export function sanitizeEditorCarnatic(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -281,6 +301,7 @@ export function sanitizeEditorCarnatic(raw) {
     let jati = Number(raw.jati);
     if (!CARNATIC_JATI.has(jati)) jati = CARNATIC_DEFAULT_JATI;
     if (tala === CARNATIC_DEFAULT_TALA) jati = CARNATIC_DEFAULT_JATI;
+    const gamakas = _sanitizeGamakas(raw.gamakas);
     if (!notation.trim()
             && raga === CARNATIC_DEFAULT_RAGA
             && bpm === CARNATIC_DEFAULT_BPM
@@ -288,11 +309,12 @@ export function sanitizeEditorCarnatic(raw) {
             && kala === CARNATIC_DEFAULT_KALA
             && tala === CARNATIC_DEFAULT_TALA
             && jati === CARNATIC_DEFAULT_JATI) {
-        return null;
+        return gamakas.length ? { gamakas } : null;
     }
     const out = { notation, raga, bpm, gati, kala };
     if (tala !== CARNATIC_DEFAULT_TALA) out.tala = tala;
     if (jati !== CARNATIC_DEFAULT_JATI) out.jati = jati;
+    if (gamakas.length) out.gamakas = gamakas;
     return out;
 }
 
