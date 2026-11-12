@@ -1123,6 +1123,9 @@ _NOTE_TECH_FIELDS = (
     # (the bass plucking-finger int, wire key `rh`) — hence the spelled-out
     # wire key `hand`.
     "hand",
+    # Carnatic gamaka (editor-only): code + semitone gaps to the next
+    # raga svara above / below. Optional; omitted on the wire when unset.
+    "gamaka", "gamaka_up", "gamaka_down",
 )
 # `bend_values` (the §6.2.1 bend curve) is deliberately NOT in the tuple above:
 # it's a list, and the tuple feeds hashable content-signature tuples
@@ -1260,6 +1263,8 @@ def _note_tech_default(field):
         return 0
     if field == "hand":
         return None  # string-valued: 'lh'/'rh', None = unassigned
+    if field in ("gamaka", "gamaka_up", "gamaka_down"):
+        return None
     return -1
 
 
@@ -3134,6 +3139,15 @@ def _arr_dict_to_wire(
         _hand = tech.get("hand")
         if _hand in ("lh", "rh"):
             out["hand"] = _hand
+        _gm = tech.get("gamaka")
+        if isinstance(_gm, str) and _gm in _CARNATIC_GAMAKA_CODES:
+            out["gm"] = _gm
+        _gmu = _safe_int(tech.get("gamaka_up"), None)
+        if _gmu is not None and _gmu >= 0:
+            out["gmu"] = _gmu
+        _gmd = _safe_int(tech.get("gamaka_down"), None)
+        if _gmd is not None and _gmd >= 0:
+            out["gmd"] = _gmd
         return out
 
     def _note_in_chord(n):

@@ -28,7 +28,7 @@ import { _resetSignpostCounters } from './signposts.js';
 import { surfaceMigrateFilename, surfaceOnSongLoaded } from './toolbars.js';
 import { _editorEscHtml, setStatus } from './ui.js';
 import { host } from './host.js';
-import { GAMAKAS } from './carnatic.js';
+import { GAMAKAS, STR, buildRaga, mod12 } from './carnatic.js';
 import { flushCarnaticPanel, sanitizeEditorCarnatic } from './carnatic-panel.js';
 
 // How many loads are in flight. The entry landing is armed by a timer on screen
@@ -637,6 +637,35 @@ function _collectGamakas(arr) {
     return out.slice(0, 2000);
 }
 
+// Semitone gaps from a gamaka note to the next raga svara above / below.
+function _stampGamakaNeighbors(arr) {
+    const ragaId = arr && arr.editor_carnatic && arr.editor_carnatic.raga;
+    const scale = ragaId ? ((buildRaga(ragaId) || {}).scale || []) : [];
+    _visitArrNotes(arr, (n) => {
+        if (!n || !n.techniques) return;
+        delete n.techniques.gamaka_up;
+        delete n.techniques.gamaka_down;
+        if (!n.techniques.gamaka) return;
+        if (!scale.length) return;
+        const s = Number(n.string);
+        const f = Number(n.fret);
+        if (!Number.isInteger(s) || STR[s] == null || !Number.isFinite(f)) return;
+        const pc = mod12(STR[s] + f);
+        let above;
+        for (let i = 0; i < scale.length; i++) {
+            if (scale[i] > pc) { above = scale[i]; break; }
+        }
+        if (above == null) above = scale[0] + 12;
+        let below;
+        for (let i = scale.length - 1; i >= 0; i--) {
+            if (scale[i] < pc) { below = scale[i]; break; }
+        }
+        if (below == null) below = scale[scale.length - 1] - 12;
+        n.techniques.gamaka_up = above - pc;
+        n.techniques.gamaka_down = pc - below;
+    });
+}
+
 function _restoreGamakas(arr) {
     const cleaned = sanitizeEditorCarnatic(arr && arr.editor_carnatic);
     const list = cleaned && cleaned.gamakas;
@@ -692,6 +721,10 @@ export function _buildSaveBody(forceFullSnapshot) {
     } else {
         _saveSuggestedMarks();
         reconstructChords();
+    }
+
+    for (const a of S.arrangements) {
+        if (a && !isDrumArrangement(a)) _stampGamakaNeighbors(a);
     }
 
     const arr = S.arrangements[S.currentArr];
