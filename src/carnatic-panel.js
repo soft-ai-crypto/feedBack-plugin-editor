@@ -666,6 +666,41 @@ export function initCarnaticPanel() {
     _updateTalaSummary();
     const btn = document.getElementById('editor-carnatic-apply');
     if (btn) btn.addEventListener('click', editorApplyCarnaticNotation);
+    const collapseBtn = document.getElementById('editor-carnatic-collapse');
+    if (collapseBtn && !collapseBtn.dataset.carnaticCollapseUi) {
+        collapseBtn.dataset.carnaticCollapseUi = '1';
+        collapseBtn.addEventListener('click', () => {
+            const panel = $panel();
+            if (!panel) return;
+            const collapsed = collapseBtn.dataset.carnaticCollapsed === '1';
+            const kids = panel.children;
+            if (!collapsed) {
+                for (let i = 1; i < kids.length; i++) {
+                    const el = kids[i];
+                    if (el.classList.contains('hidden')) {
+                        el.dataset.carnaticCollapseWasHidden = '1';
+                    } else {
+                        el.classList.add('hidden');
+                    }
+                }
+                collapseBtn.dataset.carnaticCollapsed = '1';
+                collapseBtn.textContent = '▸';
+                collapseBtn.title = 'Expand panel';
+            } else {
+                for (let i = 1; i < kids.length; i++) {
+                    const el = kids[i];
+                    if (el.dataset.carnaticCollapseWasHidden === '1') {
+                        delete el.dataset.carnaticCollapseWasHidden;
+                    } else {
+                        el.classList.remove('hidden');
+                    }
+                }
+                collapseBtn.dataset.carnaticCollapsed = '0';
+                collapseBtn.textContent = '▾';
+                collapseBtn.title = 'Collapse panel';
+            }
+        });
+    }
     const expandBtn = document.getElementById('editor-carnatic-expand');
     if (expandBtn && !expandBtn.dataset.carnaticExpandUi) {
         expandBtn.dataset.carnaticExpandUi = '1';
