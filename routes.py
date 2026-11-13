@@ -650,6 +650,8 @@ _CARNATIC_GAMAKA_CODES = {
     "kam", "jar", "sph", "nok", "ori", "pra", "and", "mur", "rav", "kha",
 }
 _CARNATIC_GAMAKA_MAX = 2000
+_CARNATIC_SYLLABLE_MAX = 5000
+_CARNATIC_SYLLABLE_LEN = 40
 
 
 def _coerce_editor_carnatic(value):
@@ -694,6 +696,7 @@ def _coerce_editor_carnatic(value):
     if tala == _CARNATIC_DEFAULT_TALA:
         jati = _CARNATIC_DEFAULT_JATI
     gamakas = _coerce_editor_gamakas(value.get("gamakas"))
+    syllables = _coerce_editor_syllables(value.get("syllables"))
     if (not notation.strip()
             and not lyrics.strip()
             and raga == _CARNATIC_DEFAULT_RAGA
@@ -702,7 +705,12 @@ def _coerce_editor_carnatic(value):
             and kala == _CARNATIC_DEFAULT_KALA
             and tala == _CARNATIC_DEFAULT_TALA
             and jati == _CARNATIC_DEFAULT_JATI):
-        return {"gamakas": gamakas} if gamakas else {}
+        leftover = {}
+        if gamakas:
+            leftover["gamakas"] = gamakas
+        if syllables:
+            leftover["syllables"] = syllables
+        return leftover
     out = {
         "notation": notation,
         "raga": raga,
@@ -718,6 +726,8 @@ def _coerce_editor_carnatic(value):
         out["jati"] = jati
     if gamakas:
         out["gamakas"] = gamakas
+    if syllables:
+        out["syllables"] = syllables
     return out
 
 
@@ -740,6 +750,32 @@ def _coerce_editor_gamakas(value):
             continue
         out.append({"t": round(float(t), 3), "s": s, "g": g})
         if len(out) >= _CARNATIC_GAMAKA_MAX:
+            break
+    return out
+
+
+def _coerce_editor_syllables(value):
+    """Keep per-note lyric syllables: `{t, s, w}` with s in 0–4, max 5000."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        w = item.get("w")
+        if not isinstance(w, str) or "\0" in w or any(c.isspace() for c in w):
+            continue
+        w = w[:_CARNATIC_SYLLABLE_LEN]
+        if not w:
+            continue
+        s = _exact_int(item.get("s"))
+        if s is None or not (0 <= s <= 4):
+            continue
+        t = item.get("t")
+        if isinstance(t, bool) or not isinstance(t, (int, float)) or not math.isfinite(t):
+            continue
+        out.append({"t": round(float(t), 3), "s": s, "w": w})
+        if len(out) >= _CARNATIC_SYLLABLE_MAX:
             break
     return out
 

@@ -207,6 +207,7 @@ export async function loadCDLC(filename, options = {}) {
         for (const a of S.arrangements) {
             if (!a) continue;
             _restoreGamakas(a);
+            _restoreSyllables(a);
             a.handshapes = (a.handshapes || []).map(_normalizeHandshape)
                 // Drop degenerate zero-/negative-length spans: they convey no
                 // region and would render/hit-test as a 2px sliver. Authoring
@@ -637,6 +638,19 @@ function _collectGamakas(arr) {
     return out.slice(0, 2000);
 }
 
+function _collectSyllables(arr) {
+    const out = [];
+    _visitArrNotes(arr, (n) => {
+        const w = n && n.techniques && n.techniques.lyric;
+        if (typeof w !== 'string' || !w) return;
+        const t = Number(n.time);
+        const s = Number(n.string);
+        if (!Number.isFinite(t) || !Number.isInteger(s) || s < 0 || s > 4) return;
+        out.push({ t: _roundTime3(t), s, w });
+    });
+    return out.slice(0, 5000);
+}
+
 // Semitone gaps from a gamaka note to the next raga svara above / below.
 function _stampGamakaNeighbors(arr) {
     const ragaId = arr && arr.editor_carnatic && arr.editor_carnatic.raga;
@@ -684,10 +698,29 @@ function _restoreGamakas(arr) {
     });
 }
 
+function _restoreSyllables(arr) {
+    const cleaned = sanitizeEditorCarnatic(arr && arr.editor_carnatic);
+    const list = cleaned && cleaned.syllables;
+    if (!list || !list.length) return;
+    const byKey = new Map();
+    for (const e of list) byKey.set(`${e.t}\0${e.s}`, e.w);
+    _visitArrNotes(arr, (n) => {
+        if (!n) return;
+        const t = Number(n.time);
+        const s = Number(n.string);
+        if (!Number.isFinite(t) || !Number.isInteger(s)) return;
+        const w = byKey.get(`${_roundTime3(t)}\0${s}`);
+        if (!w) return;
+        if (!n.techniques) n.techniques = {};
+        n.techniques.lyric = w;
+    });
+}
+
 function _withCarnatic(rest) {
     const cleaned = sanitizeEditorCarnatic({
         ...(rest && rest.editor_carnatic),
         gamakas: _collectGamakas(rest),
+        syllables: _collectSyllables(rest),
     });
     if (cleaned) return { ...rest, editor_carnatic: cleaned };
     return { ...rest, editor_carnatic: null };

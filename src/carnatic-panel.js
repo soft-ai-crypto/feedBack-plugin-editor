@@ -280,6 +280,28 @@ function _sanitizeGamakas(raw) {
     return out;
 }
 
+const CARNATIC_SYLLABLE_MAX = 5000;
+const CARNATIC_SYLLABLE_LEN = 40;
+
+function _sanitizeSyllables(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        let w = item.w;
+        if (typeof w !== 'string' || /[\s\0]/.test(w)) continue;
+        w = w.slice(0, CARNATIC_SYLLABLE_LEN);
+        if (!w) continue;
+        const s = item.s;
+        if (typeof s !== 'number' || !Number.isInteger(s) || s < 0 || s > 4) continue;
+        const t = item.t;
+        if (typeof t !== 'number' || !Number.isFinite(t)) continue;
+        out.push({ t: Math.round(t * 1000) / 1000, s, w });
+        if (out.length >= CARNATIC_SYLLABLE_MAX) break;
+    }
+    return out;
+}
+
 /** Sanitized panel snapshot, or null when everything is at the empty default. */
 export function sanitizeEditorCarnatic(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -305,6 +327,7 @@ export function sanitizeEditorCarnatic(raw) {
     if (!CARNATIC_JATI.has(jati)) jati = CARNATIC_DEFAULT_JATI;
     if (tala === CARNATIC_DEFAULT_TALA) jati = CARNATIC_DEFAULT_JATI;
     const gamakas = _sanitizeGamakas(raw.gamakas);
+    const syllables = _sanitizeSyllables(raw.syllables);
     if (!notation.trim()
             && !lyrics.trim()
             && raga === CARNATIC_DEFAULT_RAGA
@@ -313,13 +336,18 @@ export function sanitizeEditorCarnatic(raw) {
             && kala === CARNATIC_DEFAULT_KALA
             && tala === CARNATIC_DEFAULT_TALA
             && jati === CARNATIC_DEFAULT_JATI) {
-        return gamakas.length ? { gamakas } : null;
+        if (!gamakas.length && !syllables.length) return null;
+        const leftover = {};
+        if (gamakas.length) leftover.gamakas = gamakas;
+        if (syllables.length) leftover.syllables = syllables;
+        return leftover;
     }
     const out = { notation, raga, bpm, gati, kala };
     if (lyrics) out.lyrics = lyrics;
     if (tala !== CARNATIC_DEFAULT_TALA) out.tala = tala;
     if (jati !== CARNATIC_DEFAULT_JATI) out.jati = jati;
     if (gamakas.length) out.gamakas = gamakas;
+    if (syllables.length) out.syllables = syllables;
     return out;
 }
 
