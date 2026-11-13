@@ -659,6 +659,7 @@ function _stampGamakaNeighbors(arr) {
         if (!n || !n.techniques) return;
         delete n.techniques.gamaka_up;
         delete n.techniques.gamaka_down;
+        delete n.techniques.gamaka_up2;
         if (!n.techniques.gamaka) return;
         if (!scale.length) return;
         const s = Number(n.string);
@@ -677,6 +678,15 @@ function _stampGamakaNeighbors(arr) {
         if (below == null) below = scale[scale.length - 1] - 12;
         n.techniques.gamaka_up = above - pc;
         n.techniques.gamaka_down = pc - below;
+        const doubled = scale.concat(scale.map((v) => v + 12));
+        let secondAbove;
+        for (let i = 0; i < doubled.length; i++) {
+            if (doubled[i] > pc) {
+                if (i + 1 < doubled.length) secondAbove = doubled[i + 1];
+                break;
+            }
+        }
+        if (secondAbove != null) n.techniques.gamaka_up2 = secondAbove - pc;
     });
 }
 
