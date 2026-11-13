@@ -572,6 +572,8 @@ function _carnaticExpandRestoreOne(h) {
 
 function editorCloseCarnaticExpand() {
     const modal = document.getElementById('editor-carnatic-expand-modal');
+    const heading = document.getElementById('editor-carnatic-expand-notation-heading');
+    if (heading) heading.remove();
     if (_expandHome) {
         // Lyrics first: notation's saved nextSibling is the lyrics label.
         for (let i = _expandHome.length - 1; i >= 0; i--) {
@@ -598,6 +600,13 @@ function editorOpenCarnaticExpand() {
     ];
     left.appendChild(notationWrap);
     right.appendChild(lyricsWrap);
+    const heading = document.createElement('div');
+    heading.id = 'editor-carnatic-expand-notation-heading';
+    heading.textContent = 'Notation';
+    const lyricsCs = getComputedStyle(lyricsWrap);
+    heading.style.fontSize = lyricsCs.fontSize;
+    heading.style.color = lyricsCs.color;
+    left.insertBefore(heading, notationWrap);
     _carnaticExpandEnlarge(notationWrap);
     _carnaticExpandEnlarge(lyricsWrap);
     modal.classList.remove('hidden');
