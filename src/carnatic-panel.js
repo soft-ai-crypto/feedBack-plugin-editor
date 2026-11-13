@@ -505,12 +505,117 @@ function editorApplyCarnaticNotation() {
 }
 
 let _filledFor = null;
+let _expandHome = null;
+
+function _carnaticFieldWrap(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    return el.closest('label') || el;
+}
+
+function _carnaticFieldTextarea(wrap) {
+    if (!wrap) return null;
+    if (wrap.tagName === 'TEXTAREA') return wrap;
+    return wrap.querySelector('textarea');
+}
+
+function _carnaticExpandSnapshot(wrap) {
+    const ta = _carnaticFieldTextarea(wrap);
+    return {
+        wrap,
+        parent: wrap.parentNode,
+        next: wrap.nextSibling,
+        rows: ta ? ta.rows : 0,
+        fontSize: ta ? ta.style.fontSize : '',
+        height: ta ? ta.style.height : '',
+        flex: ta ? ta.style.flex : '',
+        minHeight: ta ? ta.style.minHeight : '',
+        wrapDisplay: wrap.style.display,
+        wrapFlexDir: wrap.style.flexDirection,
+        wrapHeight: wrap.style.height,
+        wrapFlex: wrap.style.flex,
+        wrapMinHeight: wrap.style.minHeight,
+    };
+}
+
+function _carnaticExpandEnlarge(wrap) {
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.height = '100%';
+    wrap.style.flex = '1';
+    wrap.style.minHeight = '0';
+    const ta = _carnaticFieldTextarea(wrap);
+    if (!ta) return;
+    ta.rows = 18;
+    ta.style.fontSize = '14px';
+    ta.style.flex = '1';
+    ta.style.minHeight = '0';
+    ta.style.height = '100%';
+}
+
+function _carnaticExpandRestoreOne(h) {
+    const ta = _carnaticFieldTextarea(h.wrap);
+    if (ta) {
+        ta.rows = h.rows;
+        ta.style.fontSize = h.fontSize;
+        ta.style.height = h.height;
+        ta.style.flex = h.flex;
+        ta.style.minHeight = h.minHeight;
+    }
+    h.wrap.style.display = h.wrapDisplay;
+    h.wrap.style.flexDirection = h.wrapFlexDir;
+    h.wrap.style.height = h.wrapHeight;
+    h.wrap.style.flex = h.wrapFlex;
+    h.wrap.style.minHeight = h.wrapMinHeight;
+    if (h.parent) h.parent.insertBefore(h.wrap, h.next);
+}
+
+function editorCloseCarnaticExpand() {
+    const modal = document.getElementById('editor-carnatic-expand-modal');
+    if (_expandHome) {
+        // Lyrics first: notation's saved nextSibling is the lyrics label.
+        for (let i = _expandHome.length - 1; i >= 0; i--) {
+            _carnaticExpandRestoreOne(_expandHome[i]);
+        }
+        _expandHome = null;
+    }
+    const ae = document.activeElement;
+    if (modal && ae && modal.contains(ae) && typeof ae.blur === 'function') ae.blur();
+    if (modal) modal.classList.add('hidden');
+}
+
+function editorOpenCarnaticExpand() {
+    if (_expandHome) return;
+    const modal = document.getElementById('editor-carnatic-expand-modal');
+    const left = document.getElementById('editor-carnatic-expand-left');
+    const right = document.getElementById('editor-carnatic-expand-right');
+    const notationWrap = _carnaticFieldWrap('editor-carnatic-notation');
+    const lyricsWrap = _carnaticFieldWrap('editor-carnatic-lyrics');
+    if (!modal || !left || !right || !notationWrap || !lyricsWrap) return;
+    _expandHome = [
+        _carnaticExpandSnapshot(notationWrap),
+        _carnaticExpandSnapshot(lyricsWrap),
+    ];
+    left.appendChild(notationWrap);
+    right.appendChild(lyricsWrap);
+    _carnaticExpandEnlarge(notationWrap);
+    _carnaticExpandEnlarge(lyricsWrap);
+    modal.classList.remove('hidden');
+    const notation = document.getElementById('editor-carnatic-notation');
+    if (notation) {
+        notation.focus();
+        if (document.activeElement !== notation) {
+            requestAnimationFrame(() => notation.focus());
+        }
+    }
+}
 
 export function _carnaticPanelRefresh() {
     const panel = $panel();
     if (!panel) return;
     const arr = S.arrangements && S.arrangements[S.currentArr];
     const show = !!(arr && _isCarnaticMandolinArr(arr));
+    if (!show) editorCloseCarnaticExpand();
     panel.classList.toggle('hidden', !show);
     // Fill on song open AND arrangement switch even when the panel stays
     // visible (two Carnatic Mandolin tracks). Do not refill every draw tick.
@@ -561,6 +666,33 @@ export function initCarnaticPanel() {
     _updateTalaSummary();
     const btn = document.getElementById('editor-carnatic-apply');
     if (btn) btn.addEventListener('click', editorApplyCarnaticNotation);
+    const expandBtn = document.getElementById('editor-carnatic-expand');
+    if (expandBtn && !expandBtn.dataset.carnaticExpandUi) {
+        expandBtn.dataset.carnaticExpandUi = '1';
+        expandBtn.addEventListener('click', editorOpenCarnaticExpand);
+    }
+    const expandApply = document.getElementById('editor-carnatic-expand-apply');
+    if (expandApply && !expandApply.dataset.carnaticExpandUi) {
+        expandApply.dataset.carnaticExpandUi = '1';
+        expandApply.addEventListener('click', editorApplyCarnaticNotation);
+    }
+    const expandClose = document.getElementById('editor-carnatic-expand-close');
+    if (expandClose && !expandClose.dataset.carnaticExpandUi) {
+        expandClose.dataset.carnaticExpandUi = '1';
+        expandClose.addEventListener('click', editorCloseCarnaticExpand);
+    }
+    const expandModal = document.getElementById('editor-carnatic-expand-modal');
+    if (expandModal && !expandModal.dataset.carnaticExpandKb) {
+        expandModal.dataset.carnaticExpandKb = '1';
+        expandModal.tabIndex = -1;
+        expandModal.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                editorCloseCarnaticExpand();
+            }
+        });
+    }
     _bindPanelPersist();
     if (!_bpmDisplayWrapped) {
         const prev = host.updateBPMDisplay;
