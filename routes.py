@@ -665,6 +665,10 @@ def _coerce_editor_carnatic(value):
     if not isinstance(notation, str):
         notation = ""
     notation = notation.replace("\0", "")[:_CARNATIC_NOTATION_MAX]
+    lyrics = value.get("lyrics")
+    if not isinstance(lyrics, str):
+        lyrics = ""
+    lyrics = lyrics.replace("\0", "")[:_CARNATIC_NOTATION_MAX]
     raga = value.get("raga")
     if not isinstance(raga, str) or not _CARNATIC_RAGA_RE.fullmatch(raga.strip()):
         raga = _CARNATIC_DEFAULT_RAGA
@@ -691,6 +695,7 @@ def _coerce_editor_carnatic(value):
         jati = _CARNATIC_DEFAULT_JATI
     gamakas = _coerce_editor_gamakas(value.get("gamakas"))
     if (not notation.strip()
+            and not lyrics.strip()
             and raga == _CARNATIC_DEFAULT_RAGA
             and bpm == _CARNATIC_DEFAULT_BPM
             and gati == _CARNATIC_DEFAULT_GATI
@@ -705,6 +710,8 @@ def _coerce_editor_carnatic(value):
         "gati": gati,
         "kala": kala,
     }
+    if lyrics:
+        out["lyrics"] = lyrics
     if tala != _CARNATIC_DEFAULT_TALA:
         out["tala"] = tala
     if jati != _CARNATIC_DEFAULT_JATI:

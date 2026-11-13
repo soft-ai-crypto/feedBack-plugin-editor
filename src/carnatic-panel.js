@@ -286,6 +286,9 @@ export function sanitizeEditorCarnatic(raw) {
     let notation = typeof raw.notation === 'string' ? raw.notation : '';
     notation = notation.replace(/\0/g, '');
     if (notation.length > CARNATIC_NOTATION_MAX) notation = notation.slice(0, CARNATIC_NOTATION_MAX);
+    let lyrics = typeof raw.lyrics === 'string' ? raw.lyrics : '';
+    lyrics = lyrics.replace(/\0/g, '');
+    if (lyrics.length > CARNATIC_NOTATION_MAX) lyrics = lyrics.slice(0, CARNATIC_NOTATION_MAX);
     let raga = typeof raw.raga === 'string' ? raw.raga.trim() : '';
     if (!CARNATIC_RAGA_RE.test(raga)) raga = CARNATIC_DEFAULT_RAGA;
     let bpm = Number(raw.bpm);
@@ -303,6 +306,7 @@ export function sanitizeEditorCarnatic(raw) {
     if (tala === CARNATIC_DEFAULT_TALA) jati = CARNATIC_DEFAULT_JATI;
     const gamakas = _sanitizeGamakas(raw.gamakas);
     if (!notation.trim()
+            && !lyrics.trim()
             && raga === CARNATIC_DEFAULT_RAGA
             && bpm === CARNATIC_DEFAULT_BPM
             && gati === CARNATIC_DEFAULT_GATI
@@ -312,6 +316,7 @@ export function sanitizeEditorCarnatic(raw) {
         return gamakas.length ? { gamakas } : null;
     }
     const out = { notation, raga, bpm, gati, kala };
+    if (lyrics) out.lyrics = lyrics;
     if (tala !== CARNATIC_DEFAULT_TALA) out.tala = tala;
     if (jati !== CARNATIC_DEFAULT_JATI) out.jati = jati;
     if (gamakas.length) out.gamakas = gamakas;
@@ -327,6 +332,7 @@ function _panelSnapshot() {
         tala: (document.getElementById('editor-carnatic-tala') || {}).value,
         jati: (document.getElementById('editor-carnatic-jati') || {}).value,
         notation: (document.getElementById('editor-carnatic-notation') || {}).value,
+        lyrics: (document.getElementById('editor-carnatic-lyrics') || {}).value,
     });
 }
 
@@ -383,6 +389,8 @@ function fillCarnaticPanel(arr) {
         if (kalaEl) kalaEl.value = String(data.kala);
         const textEl = document.getElementById('editor-carnatic-notation');
         if (textEl) textEl.value = data.notation;
+        const lyricsEl = document.getElementById('editor-carnatic-lyrics');
+        if (lyricsEl) lyricsEl.value = data.lyrics || '';
         _syncAdiJatiLock();
         _updateTalaSummary();
     } finally {
@@ -472,6 +480,7 @@ function _bindPanelPersist() {
         'editor-carnatic-tala',
         'editor-carnatic-jati',
         'editor-carnatic-notation',
+        'editor-carnatic-lyrics',
     ];
     for (const id of ids) {
         const el = document.getElementById(id);
