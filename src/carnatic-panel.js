@@ -419,6 +419,27 @@ function editorApplyCarnaticNotation() {
     const beats = S.beats || [];
     const t0 = beats.length && Number.isFinite(beats[0].time) ? beats[0].time : 0;
     const next = eventsToEditorNotes(ev, bpm, gati, kala).map((n) => ({ ...n, time: n.time + t0 }));
+    const lyricsText = ((document.getElementById('editor-carnatic-lyrics') || {}).value || '').trim();
+    if (lyricsText) {
+        const words = lyricsText.split(/\s+/);
+        let lastLyric = '';
+        for (let i = 0; i < next.length; i++) {
+            if (i >= words.length) break;
+            const w = words[i];
+            if (w === '_') continue;
+            if (w === '-') {
+                if (!lastLyric) continue;
+                const n = next[i];
+                if (!n.techniques) n.techniques = {};
+                n.techniques.lyric = lastLyric;
+            } else {
+                const n = next[i];
+                if (!n.techniques) n.techniques = {};
+                n.techniques.lyric = w;
+                lastLyric = w;
+            }
+        }
+    }
     let endTime = -Infinity;
     for (const n of next) {
         const t = Number(n.time);
