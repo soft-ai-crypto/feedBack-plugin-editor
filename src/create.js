@@ -174,6 +174,8 @@ export function editorShowCreateModal() {
         'editor-create-year', 'editor-create-track', 'editor-create-disc', 'editor-create-genre',
         'editor-create-language', 'editor-create-isrc', 'editor-create-mbid', 'editor-create-authors',
     ].forEach(setVal);
+    const starting = document.getElementById('editor-create-starting');
+    if (starting) starting.value = 'Lead';
     const artPrev = document.getElementById('editor-create-art-preview');
     if (artPrev) { artPrev.style.backgroundImage = ''; artPrev.textContent = 'No art yet'; }
     // Reset the GP8/auto-sync UI so stale banner/section/refine state isn't shown.
@@ -215,7 +217,7 @@ export function editorShowCreateSloppakModal() {
 
     const sub = document.createElement('p');
     sub.className = 'text-xs text-gray-400 mb-4';
-    sub.textContent = 'Audio + chart in slopsmith\'s native sloppak format.';
+    sub.textContent = 'Audio + chart in fee[dB]ack\'s native sloppak format.';
     inner.appendChild(sub);
 
     // ── Audio drop / picker ─────────────────────────────────────────
@@ -680,6 +682,36 @@ function _createHasAudioInput() {
     if ((createState.audioTracks || []).some(track => track && track.selected !== false)) return true;
     return createState.youtubeSelected !== false
         && !!((document.getElementById('editor-create-yt-url')?.value) || '').trim();
+}
+
+const _STARTING_INSTRUMENTS = ['Lead', 'Rhythm', 'Carnatic Mandolin'];
+
+function _createHasStagedFiles() {
+    if (createState.gpPath) return true;
+    if (createState.eofFiles && createState.eofFiles.length) return true;
+    if (createState.musicXmlFile) return true;
+    if (createState.midiFiles && createState.midiFiles.length) return true;
+    if ((createState.audioTracks || []).length) return true;
+    return !!((document.getElementById('editor-create-yt-url')?.value) || '').trim();
+}
+
+function _syncStartingInstrumentUi() {
+    const staged = _createHasStagedFiles();
+    const wrap = document.getElementById('editor-create-starting-wrap');
+    const sel = document.getElementById('editor-create-starting');
+    if (wrap) wrap.classList.toggle('hidden', staged);
+    if (sel) sel.disabled = staged;
+    // Only the blank path reads this roster. Imported files own theirs.
+    if (!staged) {
+        const v = (sel && sel.value) || 'Lead';
+        createState.roster = [_STARTING_INSTRUMENTS.includes(v) ? v : 'Lead'];
+    }
+}
+
+export function editorCreateStartingChanged(el) {
+    if (_createHasStagedFiles()) return;
+    const v = (el && el.value) || 'Lead';
+    createState.roster = [_STARTING_INSTRUMENTS.includes(v) ? v : 'Lead'];
 }
 
 function _createHasPendingYoutube() {
@@ -1166,6 +1198,7 @@ function renderStaged() {
         }).join('');
     }
     document.getElementById('editor-create-tracks')?.classList.remove('hidden');
+    _syncStartingInstrumentUi();
 }
 
 export function editorStagedRemove(role) {

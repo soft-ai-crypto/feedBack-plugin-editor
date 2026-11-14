@@ -4,6 +4,7 @@
  */
 
 import { buildRaga, GAMAKAS, JATIS, TALAS, janyaOptions, melakartaOptions, ragaKey, talaBeats, talaGrouping } from './carnatic.js';
+import { parseCarnaticTextFile } from './carnatic-import.js';
 import { eventsToEditorNotes, parseNotation } from './carnatic-notation.js';
 import { AddNoteCmd, DeleteNotesCmd } from './commands.js';
 import { host } from './host.js';
@@ -673,6 +674,45 @@ function _bindPanelPersist() {
     }
 }
 
+async function _onCarnaticImportFile(ev) {
+    const input = ev && ev.target;
+    const file = input && input.files && input.files[0];
+    try {
+        if (!file) return;
+        const text = await file.text();
+        const result = parseCarnaticTextFile(text);
+        if (!result || !result.notation) {
+            setStatus('No swara lines found');
+            return;
+        }
+        const notationEl = document.getElementById('editor-carnatic-notation');
+        if (notationEl) {
+            notationEl.value = result.notation;
+            notationEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const settings = result.settings || {};
+        const setSelect = (id, value) => {
+            if (value == null || value === '') return;
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = value;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        setSelect('editor-carnatic-tala', settings.tala);
+        setSelect('editor-carnatic-jati', settings.jati);
+        setSelect('editor-carnatic-raga', settings.raga);
+        setSelect('editor-carnatic-gati', settings.gati);
+        const n = result.notation.split('\n').length;
+        const warnings = result.warnings || [];
+        const w = warnings.length;
+        const head = `Imported ${n} line(s), ${w} warning(s)`;
+        const extra = warnings.slice(0, 5);
+        setStatus(extra.length ? `${head}: ${extra.join('; ')}` : head);
+    } finally {
+        if (input) input.value = '';
+    }
+}
+
 export function initCarnaticPanel() {
     fillRagas();
     fillTalas();
@@ -681,6 +721,12 @@ export function initCarnaticPanel() {
     _updateTalaSummary();
     const btn = document.getElementById('editor-carnatic-apply');
     if (btn) btn.addEventListener('click', editorApplyCarnaticNotation);
+    const importBtn = document.getElementById('editor-carnatic-import');
+    const importFile = document.getElementById('editor-carnatic-import-file');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', () => importFile.click());
+        importFile.addEventListener('change', _onCarnaticImportFile);
+    }
     const collapseBtn = document.getElementById('editor-carnatic-collapse');
     if (collapseBtn && !collapseBtn.dataset.carnaticCollapseUi) {
         collapseBtn.dataset.carnaticCollapseUi = '1';

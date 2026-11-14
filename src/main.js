@@ -18,7 +18,8 @@ import {
 import {
     editorApplyCreateResult, editorArtSearch,
     editorAutoSyncAudioSelected, editorAutoSyncYtFetch, editorBuild,
-    editorContentImportSelected, editorCreateArtSelected, editorDoCreate,
+    editorContentImportSelected, editorCreateArtSelected, editorCreateStartingChanged,
+    editorDoCreate,
     editorEofFilesSelected, editorGPFileSelected, editorHideCreateModal, editorIdentifyAudio,
     editorMbMatch, editorRefineSync, editorSetAudioMode, editorSetCreateMode,
     editorSetGP8AudioMode, editorShowCreateModal, editorShowCreateSloppakModal,
@@ -802,6 +803,7 @@ window.editorAutoSyncYtFetch = editorAutoSyncYtFetch;
 window.editorBuild = editorBuild;
 window.editorContentImportSelected = editorContentImportSelected;
 window.editorCreateArtSelected = editorCreateArtSelected;
+window.editorCreateStartingChanged = editorCreateStartingChanged;
 window.editorDoCreate = editorDoCreate;
 window.editorEofFilesSelected = editorEofFilesSelected;
 window.editorGPFileSelected = editorGPFileSelected;

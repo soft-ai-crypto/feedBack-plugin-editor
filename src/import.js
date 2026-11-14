@@ -1141,7 +1141,7 @@ export function _showDrumImportUnmappedModal(unmapped) {
     intro.className = 'text-sm text-gray-400 mb-4';
     intro.textContent = `${total} note${total === 1 ? '' : 's'} (across `
         + `${unmapped.length} MIDI value${unmapped.length === 1 ? '' : 's'}) `
-        + `don't map to one of the ${DRUM_PIECE_ORDER.length} slopsmith drum `
+        + `don't map to one of the ${DRUM_PIECE_ORDER.length} fee[dB]ack drum `
         + `pieces. Drop them, or pick a drum piece per row and add them to `
         + `your tab.`;
     inner.appendChild(intro);
