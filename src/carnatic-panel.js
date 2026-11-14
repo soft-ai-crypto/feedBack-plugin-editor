@@ -385,7 +385,10 @@ function songBpmRounded() {
 
 function fillCarnaticBpmFromSong() {
     const bpmEl = document.getElementById('editor-carnatic-bpm');
-    if (bpmEl) bpmEl.value = String(songBpmRounded());
+    if (!bpmEl) return;
+    const next = String(songBpmRounded());
+    if (bpmEl.value === next) return;
+    bpmEl.value = next;
 }
 
 function fillCarnaticPanel(arr) {
@@ -629,7 +632,10 @@ export function _carnaticPanelRefresh() {
     // Fill on song open AND arrangement switch even when the panel stays
     // visible (two Carnatic Mandolin tracks). Do not refill every draw tick.
     const token = `${S.sessionId || ''}\0${S.currentArr}\0${show ? 1 : 0}`;
-    if (_filledFor === token) return;
+    if (_filledFor === token) {
+        if (show) fillCarnaticBpmFromSong();
+        return;
+    }
     _filledFor = token;
     if (show) fillCarnaticPanel(arr);
 }
