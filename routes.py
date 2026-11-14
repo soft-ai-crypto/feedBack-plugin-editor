@@ -6198,7 +6198,7 @@ def setup(app, context):
         # chosen here — fretted roles get a default standard tuning (Bass 4,
         # guitar 6) and the editor extends the range (up to 9-string guitar /
         # 6-string bass) after creation.
-        _FRETTED = ("Lead", "Rhythm", "Bass")
+        _FRETTED = ("Lead", "Rhythm", "Bass", "Carnatic Mandolin")
         _INSTRUMENTS = _FRETTED + ("Keys", "Drums")
         _ALL_ROLES = _INSTRUMENTS + ("Vocals",)
         _ROLE_ALIASES = {
@@ -6418,6 +6418,8 @@ def setup(app, context):
             # carries the spec `type: piano`; Drums opens the drum lane by name.
             # Each opens in the right editor mode by NAME (KEYS_PATTERN / ^drums).
             def _default_tuning(role: str) -> list:
+                if role == "Carnatic Mandolin":
+                    return [0, 0, 0, 0, 0]
                 if role in _FRETTED:
                     return [0] * (4 if role == "Bass" else 6)
                 return []
@@ -6433,6 +6435,8 @@ def setup(app, context):
                 }
                 if _role == "Keys":
                     _arr["type"] = "piano"
+                elif _role == "Carnatic Mandolin":
+                    _arr["type"] = "carnatic-mandolin"
                 arrangements_data.append(_arr)
             # Seed the starter grid (see _create_seed_beats), at a BPM
             # opportunistically parsed from an audio file name when one is

@@ -337,7 +337,7 @@ export function editorShowCreateSloppakModal() {
                 : 'bg-dark-700 hover:bg-dark-600 text-gray-300');
         });
     };
-    for (const name of ['Lead', 'Rhythm', 'Bass']) {
+    for (const name of ['Lead', 'Rhythm', 'Carnatic Mandolin', 'Bass']) {
         const b = document.createElement('button');
         b.type = 'button';
         b.dataset.arr = name;
