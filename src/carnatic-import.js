@@ -4,7 +4,7 @@
  */
 
 import {
-    JANYA, TALAS, janyaOptions, melakartaOptions, ragaKey,
+    JANYA, TALAS, janyaOptions, melakartaOptions, ragaKey, talaBeats,
 } from './carnatic.js';
 
 function _akaNames(aka) {
@@ -39,6 +39,13 @@ function findTalaName(raw) {
     if (!name) return null;
     const hit = TALAS.find((t) => t.n.toLowerCase() === name.toLowerCase());
     return hit ? hit.n : null;
+}
+
+function cycleBeats(settings) {
+    const tala = TALAS.find((t) => t.n === (settings && settings.tala));
+    if (!tala) return null;
+    const n = talaBeats(tala, Number((settings && settings.jati) || '4'));
+    return typeof n === 'number' && n > 0 ? n : null;
 }
 
 function crossesBeat(startHalf, endHalf) {
@@ -105,7 +112,7 @@ function formatSwaraLine(units, bars, trailingDouble) {
     return tokens.join(' ');
 }
 
-function parseSwaraLine(raw, lineNo, warnings) {
+function parseSwaraLine(raw, lineNo, warnings, beatsPerCycle) {
     const text = String(raw ?? '').normalize('NFD');
     const units = [];
     const bars = [];
@@ -193,6 +200,11 @@ function parseSwaraLine(raw, lineNo, warnings) {
     }
     if (half % 8 !== 0) {
         warnings.push(`Line ${lineNo}: unit count is not a multiple of 4`);
+    } else if (beatsPerCycle) {
+        const B = half / 8;
+        if (Number.isInteger(B) && half % (beatsPerCycle * 8) !== 0) {
+            warnings.push(`Line ${lineNo}: has ${B} beats, not a whole number of tala cycles (${beatsPerCycle} beats per cycle)`);
+        }
     }
     return formatSwaraLine(units, bars, trailingDouble);
 }
@@ -248,7 +260,7 @@ export function parseCarnaticTextFile(text) {
             continue;
         }
         if (mode === 'swara') {
-            swaraOut.push(parseSwaraLine(lines[n], n + 1, warnings));
+            swaraOut.push(parseSwaraLine(lines[n], n + 1, warnings, cycleBeats(settings)));
         }
     }
 
